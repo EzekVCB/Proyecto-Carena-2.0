@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load widget_tweaks %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
+<script src="{% static 'index/js/b4.js' %}"></script>
+
+<div id="AgregarCategoriaModal" class="modal" style="overflow: scroll;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nuevo</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form method="POST" action="{% url 'AddCategoria' %}" enctype="multipart/form-data">{% csrf_token %}
+                    {% for field in form_personal %}
+                    <p>{{field.label}} <br>
+                        {{field|add_class:"form-control text-dark"}}</p>
+                    {% for error in field.errors %}
+                    <p class="alarma">{{error}}</p>
+                    {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <p class="alarma">{{error}}</p>
+                    {% endfor %}
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Agregar
+                </button>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="EditarCategoriaModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Editar</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form method="POST" action="{% url 'EditCategoria' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" id="id_categoria_editar" name="id_categoria_editar" value="{{ form_editar.instance.id }}">
+
+                    <!-- Los campos de formulario del ModelForm -->
+                    <div class="form-group">
+                        <label for="nombre_editar">{{ form_editar.Nombre.label }}</label>
+                        {{ form_editar.Nombre|add_class:"form-control" }}
+                    </div>
+
+                    <!-- Mostrar errores de cada campo -->
+                    {% for field in form_editar %}
+                        {% for error in field.errors %}
+                            <div class="alert alert-danger">{{ error }}</div>
+                        {% endfor %}
+                    {% endfor %}
+
+                    <!-- Errores generales -->
+                    {% for error in form_editar.non_field_errors %}
+                        <div class="alert alert-danger">{{ error }}</div>
+                    {% endfor %}
+
+            </div>
+            <div class="modal-footer bg-dark text-white">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Volver
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Aceptar
+                </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div id="EliminarCategoriaModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Eliminar</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <p class="labelmodal">¿Estás seguro?</p>
+                <form method="POST" action="{% url 'DeleteCategoria' %}">{% csrf_token %}
+                    <input type="hidden" id="id_categoria_eliminar" name="id_categoria_eliminar">
+            </div>
+            <div class="modal-footer bg-dark text-white">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                Volver
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Aceptar
+                </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="text-center">Categorias   <i class="fas fa-users"></i></h3>
+        <div class="col-md-3 pb-2">
+            <a href="#AgregarCategoriaModal"
+                data-toggle="modal" data-dismiss="modal">
+                <button type="button" class="btn btn-success">
+                    Agregar Categoria
+                    <i class="fas fa-plus-circle"></i>
+                </button>
+            </a>
+        </div>
+        <div class="card card-body" style="overflow:scroll">
+            <table class="table table-hover table-primary" id="myTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                    </tr>
+                </thead>
+                <tbody class="text-dark">
+                    {% for i in categorias %}
+                    <tr>
+                        <td>{{i.Nombre}}</td>
+                        <td>
+                            <button onclick="editarCategoria('{{i.id}}','{{i.Nombre}}')" class="btn btn-dark-outline btn-sm" data-toggle="modal"
+                                href="#EditarCategoriaModal"><img src="{% static 'index/img/editar.png' %}" alt="Error"
+                                    width="30"></button>
+                                    <button onclick="eliminarCategoria('{{i.id}}')" class="btn btn-dark-outline btn-sm"
+                                    data-toggle="modal" href="#EliminarCategoriaModal"><img
+                                    src="{% static 'index/img/delete.png' %}" alt="Error" width="30"></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% if messages %}
+{% for message in messages %}
+<script>
+    Swal.fire({
+        icon: 'error',
+        title: 'Error...',
+        text: "{{message}}",
+    })
+</script>
+{% endfor %}
+{% endif %}
+{% endblock %}

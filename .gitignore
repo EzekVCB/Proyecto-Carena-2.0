@@ -1,0 +1,43 @@
+# Ignora la carpeta .vscode que contiene la configuración del proyecto
+# para visual code.
+.vscode/
+
+
+# Ignora la carpeta lib y Scripts del entorno virtual que al instalar los
+# requerimientos se instalará en ese equipo.
+lib/
+Scripts/
+
+**/Scripts
+# Ignora __pycache__ en cualquier carpeta del proyecto.
+**/__pycache__
+
+
+# Entornos virtuales
+vSistema/
+*.pyc
+
+# Archivos de configuración generados por Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+db.sqlite3
+media/
+
+# Archivos de configuración locales
+/local_settings.py
+
+# Archivos de recopilación de estáticos
+/static/
+
+# Directorio de carga de archivos (si se usa algo diferente a S3)
+/media/
+
+# Archivo de sesiones de Django
+*.session
+
+# Ignorar archivos de migración excepto __init__.py
+__init__.py
+aplicacion/migrations/*.py
+!aplicacion/migrations/__init__.py

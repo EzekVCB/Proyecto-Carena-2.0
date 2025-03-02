@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
+<script src="{% static 'index/js/b4.js' %}"></script>
+
+<div id="AgregarProductoModal" class="modal" style="overflow: scroll;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nuevo producto</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form method="POST" action="{% url 'AddProducto' %}" enctype="multipart/form-data">{% csrf_token %}
+                    {% for field in form_producto %}
+                    <p>{{ field.label }} <br>
+                        {{ field|add_class:"form-control text-dark" }}</p>
+                    {% for error in field.errors %}
+                    <p class="alarma">{{ error }}</p>
+                    {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <p class="alarma">{{ error }}</p>
+                    {% endfor %}
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Agregar
+                </button>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="EditarProductoModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Editar producto</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form method="POST" action="{% url 'EditProducto' %}" enctype="multipart/form-data">{% csrf_token %}
+                    <input type="hidden" id="id_producto_editar" name="id_producto_editar">
+                    {% for field in form_editar %}
+                    <p>{{ field.label }} <br>
+                        {{ field|add_class:"form-control" }}</p>
+                    {% for error in field.errors %}
+                    <p class="alarma">{{ error }}</p>
+                    {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <p class="alarma">{{ error }}</p>
+                    {% endfor %}
+            </div>
+            <div class="modal-footer bg-dark text-white">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Volver
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Aceptar
+                </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="EliminarProductoModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Eliminar producto</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <p class="labelmodal">¿Estás seguro?</p>
+                <form method="POST" action="{% url 'DeleteProducto' %}">{% csrf_token %}
+                    <input type="hidden" id="id_producto_eliminar" name="id_producto_eliminar">
+            </div>
+            <div class="modal-footer bg-dark text-white">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Volver
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Aceptar
+                </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="text-center">Productos <i class="fas fa-boxes"></i></h3>
+        <div class="col-md-3 pb-2">
+            <a href="#AgregarProductoModal" data-toggle="modal" data-dismiss="modal">
+                <button type="button" class="btn btn-success">
+                    Agregar Producto
+                    <i class="fas fa-plus-circle"></i>
+                </button>
+            </a>
+        </div>
+        <div class="card card-body" style="overflow:scroll">
+            <table class="table table-hover table-primary" id="myTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Marca</th>
+                        <th>Cantidad</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="text-dark">
+                    {% for producto in productos %}
+                    <tr>
+                        <td>{{ producto.Nombre }}</td>
+                        <td></td>
+                        <td>{{ producto.Cantidad }}</td>
+                        <td>
+                            <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
+                                class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal">
+                                <img src="{% static 'index/img/editar.png' %}" alt="Editar" width="30">
+                            </button>
+                            <button onclick="eliminarProducto('{{ producto.id }}')"
+                                class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EliminarProductoModal">
+                                <img src="{% static 'index/img/delete.png' %}" alt="Eliminar" width="30">
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<script>
+    Swal.fire({
+        icon: 'error',
+        title: 'Error...',
+        text: "{{ message }}",
+    });
+</script>
+{% endfor %}
+{% endif %}
+{% endblock %}
