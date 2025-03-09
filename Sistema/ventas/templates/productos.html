@@ -2,6 +2,77 @@
 {% load static %}
 {% load widget_tweaks %}
 
+{% block extra_css %}
+<style>
+    /* Estilos para tablas responsivas */
+    @media screen and (max-width: 767px) {
+        .table-responsive-stack tr {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ccc;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        
+        .table-responsive-stack td {
+            border: none;
+            display: block;
+            padding: 0.5rem;
+            position: relative;
+            padding-left: 40%;
+        }
+        
+        .table-responsive-stack td:before {
+            content: attr(data-label);
+            display: inline-block;
+            font-weight: bold;
+            width: 35%;
+            position: absolute;
+            left: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            margin-top: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-group .btn {
+            margin: 0 2px;
+            padding: 0.375rem 0.75rem;
+        }
+
+        /* Ajustes para modales en móviles */
+        .modal-dialog {
+            margin: 0.5rem;
+            max-width: 100%;
+        }
+
+        .modal-content {
+            border-radius: 0;
+        }
+
+        /* Ajuste para el botón de agregar producto */
+        .add-product-btn {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+    }
+
+    /* Mejoras generales */
+    .stock-badge {
+        display: inline-block;
+        min-width: 80px;
+        text-align: center;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,0.075);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
@@ -96,95 +167,157 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-12">
-        <h3 class="text-center">Productos <i class="fas fa-boxes"></i></h3>
-        <div class="col-md-3 pb-2">
-            <a href="#AgregarProductoModal" data-toggle="modal" data-dismiss="modal">
-                <button type="button" class="btn btn-success">
-                    Agregar Producto
-                    <i class="fas fa-plus-circle"></i>
-                </button>
-            </a>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h3 class="text-center mb-4">Productos <i class="fas fa-boxes"></i></h3>
+            
+            <div class="mb-3">
+                <a href="#AgregarProductoModal" data-toggle="modal" data-dismiss="modal" class="btn btn-success add-product-btn">
+                    <i class="fas fa-plus-circle"></i> Agregar Producto
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tabla-productos">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Marca</th>
+                                    <th>Categoría</th>
+                                    <th>Stock Actual</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Estado</th>
+                                    <th>Última Actualización</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in productos %}
+                                <tr>
+                                    <td data-label="Nombre">{{ producto.Nombre }}</td>
+                                    <td data-label="Marca">{{ producto.Marca }}</td>
+                                    <td data-label="Categoría">{{ producto.SubCategoria }}</td>
+                                    <td data-label="Stock Actual">
+                                        {% if producto.inventario %}
+                                            {{ producto.inventario.stock_actual }} {{ producto.UnidadDeMedida }}
+                                        {% else %}
+                                            No configurado
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Stock Mínimo">
+                                        {% if producto.inventario %}
+                                            {{ producto.inventario.stock_minimo }} {{ producto.UnidadDeMedida }}
+                                        {% else %}
+                                            No configurado
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Estado">
+                                        {% if producto.inventario %}
+                                            {% with estado=producto.inventario.estado_stock %}
+                                                {% if estado == 'Sin stock' %}
+                                                    <span class="badge badge-danger stock-badge">{{ estado }}</span>
+                                                {% elif estado == 'Stock bajo' %}
+                                                    <span class="badge badge-warning stock-badge">{{ estado }}</span>
+                                                {% elif estado == 'Stock normal' %}
+                                                    <span class="badge badge-success stock-badge">{{ estado }}</span>
+                                                {% elif estado == 'Sobrestock' %}
+                                                    <span class="badge badge-info stock-badge">{{ estado }}</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="badge badge-secondary stock-badge">Sin configurar</span>
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Última Actualización">
+                                        {% if producto.inventario %}
+                                            {{ producto.inventario.ultima_actualizacion|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Acciones">
+                                        <div class="btn-group">
+                                            <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
+                                                class="btn btn-outline-primary btn-sm" data-toggle="modal" href="#EditarProductoModal" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="ajustarInventario('{{ producto.id }}', '{{ producto.Nombre }}')"
+                                                class="btn btn-warning btn-sm" data-toggle="modal" href="#AjusteInventarioModal" title="Ajustar Stock">
+                                                <i class="fas fa-balance-scale"></i>
+                                            </button>
+                                            <a href="{% url 'historial_movimientos_producto' producto.id %}" 
+                                               class="btn btn-info btn-sm" title="Ver movimientos">
+                                                <i class="fas fa-history"></i>
+                                            </a>
+                                            <button onclick="eliminarProducto('{{ producto.id }}')"
+                                                class="btn btn-danger btn-sm" data-toggle="modal" href="#EliminarProductoModal" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card card-body" style="overflow:scroll">
-            <table class="table table-hover table-primary" id="myTable">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Marca</th>
-                        <th>Categoría</th>
-                        <th>Stock Actual</th>
-                        <th>Stock Mínimo</th>
-                        <th>Estado</th>
-                        <th>Última Actualización</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="text-dark">
-                    {% for producto in productos %}
-                    <tr>
-                        <td>{{ producto.Nombre }}</td>
-                        <td>{{ producto.Marca }}</td>
-                        <td>{{ producto.SubCategoria }}</td>
-                        <td>
-                            {% if producto.inventario %}
-                                {{ producto.inventario.stock_actual }} {{ producto.UnidadDeMedida }}
-                            {% else %}
-                                No configurado
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if producto.inventario %}
-                                {{ producto.inventario.stock_minimo }} {{ producto.UnidadDeMedida }}
-                            {% else %}
-                                No configurado
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if producto.inventario %}
-                                {% with estado=producto.inventario.estado_stock %}
-                                    {% if estado == 'Sin stock' %}
-                                        <span class="badge badge-danger">{{ estado }}</span>
-                                    {% elif estado == 'Stock bajo' %}
-                                        <span class="badge badge-warning">{{ estado }}</span>
-                                    {% elif estado == 'Stock normal' %}
-                                        <span class="badge badge-success">{{ estado }}</span>
-                                    {% elif estado == 'Sobrestock' %}
-                                        <span class="badge badge-info">{{ estado }}</span>
-                                    {% endif %}
-                                {% endwith %}
-                            {% else %}
-                                <span class="badge badge-secondary">Sin configurar</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if producto.inventario %}
-                                {{ producto.inventario.ultima_actualizacion|date:"d/m/Y H:i" }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="btn-group">
-                                <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
-                                    class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <a href="{% url 'historial_movimientos_producto' producto.id %}" 
-                                   class="btn btn-info btn-sm" title="Ver movimientos">
-                                    <i class="fas fa-history"></i>
-                                </a>
-                                <button onclick="eliminarProducto('{{ producto.id }}')"
-                                    class="btn btn-danger btn-sm" data-toggle="modal" href="#EliminarProductoModal" title="Eliminar">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    </div>
+</div>
+
+<!-- Modal de Ajuste de Inventario -->
+<div class="modal fade" id="AjusteInventarioModal" tabindex="-1" role="dialog" aria-labelledby="ajusteInventarioLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="ajusteInventarioLabel">Ajuste de Inventario</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'ajuste_inventario' 0 %}" id="formAjusteInventario">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <input type="hidden" id="producto_id_ajuste" name="producto_id">
+                    <h6 id="producto_nombre_ajuste" class="mb-4"></h6>
+                    
+                    <div class="form-group">
+                        <label for="tipo_ajuste">Tipo de Ajuste</label>
+                        <select class="form-control" id="tipo_ajuste" name="tipo_ajuste" required>
+                            <option value="">Seleccione un tipo de ajuste</option>
+                            <option value="ENT">Entrada de mercancía</option>
+                            <option value="SAL">Salida de mercancía</option>
+                            <option value="CNT">Ajuste por conteo</option>
+                        </select>
+                        <small class="form-text text-muted">
+                            - Entrada: Suma la cantidad al stock actual<br>
+                            - Salida: Resta la cantidad del stock actual<br>
+                            - Conteo: Establece el stock exacto (la cantidad ingresada será el nuevo stock)
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cantidad">Cantidad</label>
+                        <input type="number" class="form-control" id="cantidad" name="cantidad" required min="0" step="1">
+                        <small class="form-text text-muted" id="cantidad_ayuda">
+                            Ingrese la cantidad a ajustar
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="justificacion">Justificación</label>
+                        <textarea class="form-control" id="justificacion" name="justificacion" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Ajuste</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -201,47 +334,87 @@
 {% endfor %}
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
 $(document).ready(function() {
-    if (!$.fn.DataTable.isDataTable('#myTable')) {
-        $('#myTable').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
-            },
-            "order": [[5, "asc"]], // Ordenar por estado de stock
-            "pageLength": 25,
-            "responsive": true,
-            "autoWidth": false,
-            "dom": 'Bfrtip',
-            "buttons": [
-                {
-                    extend: 'excel',
-                    text: '<i class="fas fa-file-excel"></i> Excel',
-                    className: 'btn btn-success btn-sm',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6]
-                    }
-                },
-                {
-                    extend: 'pdf',
-                    text: '<i class="fas fa-file-pdf"></i> PDF',
-                    className: 'btn btn-danger btn-sm',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6]
-                    }
-                },
-                {
-                    extend: 'print',
-                    text: '<i class="fas fa-print"></i> Imprimir',
-                    className: 'btn btn-info btn-sm',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6]
-                    }
-                }
-            ]
+    // Inicializar DataTable con configuración responsive
+    var table = $('#tabla-productos').DataTable({
+        responsive: true,
+        language: {
+            url: "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        dom: "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+             "<'row'<'col-sm-12'tr>>" +
+             "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        order: [[0, "asc"]],
+        columnDefs: [
+            {
+                targets: -1,
+                orderable: false
+            }
+        ]
+    });
+
+    // Manejar la visualización responsive de la tabla
+    if (window.innerWidth < 768) {
+        $('.table-responsive-stack').each(function() {
+            var $table = $(this);
+            $table.find('th').each(function(i) {
+                $('.table-responsive-stack td:nth-child(' + (i + 1) + ')').attr('data-label', $(this).text());
+            });
         });
+    }
+
+    // Ajustar modales para dispositivos móviles
+    $('.modal').on('show.bs.modal', function() {
+        if (window.innerWidth < 768) {
+            $(this).find('.modal-dialog').css({
+                'margin': '0',
+                'width': '100%',
+                'max-width': '100%'
+            });
+        }
+    });
+});
+
+function ajustarInventario(id, nombre) {
+    document.getElementById('producto_id_ajuste').value = id;
+    document.getElementById('producto_nombre_ajuste').textContent = 'Producto: ' + nombre;
+    document.getElementById('formAjusteInventario').action = "{% url 'ajuste_inventario' 0 %}".replace('0', id);
+    
+    // Limpiar el formulario
+    document.getElementById('tipo_ajuste').value = '';
+    document.getElementById('cantidad').value = '';
+    document.getElementById('justificacion').value = '';
+}
+
+// Validación del formulario de ajuste
+document.getElementById('formAjusteInventario').addEventListener('submit', function(e) {
+    const tipo = document.getElementById('tipo_ajuste').value;
+    const cantidad = document.getElementById('cantidad').value;
+    const justificacion = document.getElementById('justificacion').value;
+
+    if (!tipo || !cantidad || !justificacion) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Todos los campos son obligatorios'
+        });
+        return false;
+    }
+
+    if (cantidad <= 0) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'La cantidad debe ser mayor a 0'
+        });
+        return false;
     }
 });
 </script>
-
 {% endblock %}

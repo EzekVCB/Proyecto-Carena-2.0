@@ -1,5 +1,7 @@
 from django.db import models
 from django.forms import model_to_dict
+from django.contrib.auth.models import User
+from django.utils import timezone
 
 # Create your models here.
 class Cliente(models.Model):
@@ -50,8 +52,6 @@ class Producto(models.Model):
     Proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, default=None, null=True)
     CodigoDeBarras = models.CharField(max_length=50)
     Descripcion = models.CharField(max_length=200)
-    Cantidad = models.DecimalField(default=None, null=True, max_digits=10, decimal_places=2)
-    CantidadMinimaSugerida = models.DecimalField(default=None, null=True, max_digits=10, decimal_places=2)
     UnidadDeMedida = models.ForeignKey(UnidadDeMedida, on_delete=models.CASCADE, default=None, null=True)
     PrecioCosto = models.DecimalField(default=None, null=True, decimal_places=2, max_digits=10)
     PrecioDeLista = models.DecimalField(default=None, null=True, decimal_places=2, max_digits=10)
@@ -64,16 +64,14 @@ class Producto(models.Model):
     imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
 
     def estado_stock(self):
-        if self.Cantidad is None or self.CantidadMinimaSugerida is None:
+        if not hasattr(self, 'inventario'):
             return "Sin configurar"
-        if self.Cantidad <= 0:
-            return "Sin stock"
-        if self.Cantidad <= self.CantidadMinimaSugerida:
-            return "Stock bajo"
-        return "Stock normal"
+        return self.inventario.estado_stock()
 
     def necesita_reposicion(self):
-        return self.Cantidad <= self.CantidadMinimaSugerida if self.Cantidad and self.CantidadMinimaSugerida else False
+        if not hasattr(self, 'inventario'):
+            return False
+        return self.inventario.stock_actual <= self.inventario.stock_minimo
 
     def __str__(self):
         return self.Nombre
@@ -173,17 +171,6 @@ class TransaccionInventario(models.Model):
     def __str__(self):
         return f"{self.get_tipo_movimiento_display()} - {self.inventario.producto.Nombre}"
 
-    def save(self, *args, **kwargs):
-        # Actualizar el stock en el inventario
-        if not self.pk:  # Solo si es una nueva transacción
-            inventario = self.inventario
-            if self.tipo_movimiento in ['SAL', 'MER']:
-                inventario.stock_actual -= self.cantidad
-            else:
-                inventario.stock_actual += self.cantidad
-            inventario.save()
-        super().save(*args, **kwargs)
-
     class Meta:
         verbose_name = "Transacción de Inventario"
         verbose_name_plural = "Transacciones de Inventario"
@@ -191,12 +178,9 @@ class TransaccionInventario(models.Model):
 
 class AjusteInventario(models.Model):
     TIPO_AJUSTE = [
-        ('MER', 'Merma'),
-        ('DAÑ', 'Daño'),
-        ('ROB', 'Robo'),
-        ('VEN', 'Vencimiento'),
-        ('ERR', 'Error de Conteo'),
-        ('OTR', 'Otro')
+        ('ENT', 'Entrada'),
+        ('SAL', 'Salida'),
+        ('CNT', 'Conteo')
     ]
 
     fecha = models.DateTimeField(auto_now_add=True)
@@ -205,7 +189,7 @@ class AjusteInventario(models.Model):
     tipo_ajuste = models.CharField(max_length=3, choices=TIPO_AJUSTE)
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     justificacion = models.TextField()
-    usuario = models.CharField(max_length=50)  # Idealmente debería ser ForeignKey a User
+    usuario = models.CharField(max_length=50)
     documento_respaldo = models.FileField(upload_to='ajustes/', null=True, blank=True)
     aprobado = models.BooleanField(default=False)
     aprobado_por = models.CharField(max_length=50, null=True, blank=True)
@@ -334,5 +318,80 @@ class ProductosEgreso(models.Model):
     def toJSON(self):
         item = model_to_dict(self, exclude=['created'])
         return item
+
+class CajaDiaria(models.Model):
+    fecha = models.DateField(auto_now_add=True)
+    hora_apertura = models.TimeField(auto_now_add=True)
+    hora_cierre = models.TimeField(null=True, blank=True)
+    monto_inicial = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_final = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    total_ventas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_efectivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_transferencia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    diferencia = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    observaciones = models.TextField(blank=True)
+    estado = models.CharField(max_length=20, choices=[
+        ('ABIERTA', 'Abierta'),
+        ('CERRADA', 'Cerrada')
+    ], default='ABIERTA')
+    usuario_apertura = models.ForeignKey(User, on_delete=models.PROTECT, related_name='cajas_abiertas')
+    usuario_cierre = models.ForeignKey(User, on_delete=models.PROTECT, related_name='cajas_cerradas', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Caja Diaria'
+        verbose_name_plural = 'Cajas Diarias'
+        ordering = ['-fecha', '-hora_apertura']
+
+    def __str__(self):
+        return f'Caja del {self.fecha} - {self.get_estado_display()}'
+
+    def calcular_totales(self):
+        # Calcular totales de ventas del día
+        ventas_dia = Venta.objects.filter(
+            Fecha__date=self.fecha
+        )
+        
+        self.total_ventas = sum(venta.ImporteTotal for venta in ventas_dia)
+        self.total_efectivo = sum(venta.ImporteTotal for venta in ventas_dia.filter(MedioDePago__Nombre='EFECTIVO'))
+        self.total_tarjeta = sum(venta.ImporteTotal for venta in ventas_dia.filter(MedioDePago__Nombre='TARJETA'))
+        self.total_transferencia = sum(venta.ImporteTotal for venta in ventas_dia.filter(MedioDePago__Nombre='TRANSFERENCIA'))
+        
+        if self.monto_final:
+            efectivo_esperado = self.monto_inicial + self.total_efectivo
+            self.diferencia = self.monto_final - efectivo_esperado
+
+    def cerrar_caja(self, monto_final, observaciones, usuario):
+        if self.estado == 'CERRADA':
+            raise ValueError('La caja ya está cerrada')
+            
+        self.monto_final = monto_final
+        self.observaciones = observaciones
+        self.estado = 'CERRADA'
+        self.hora_cierre = timezone.now().time()
+        self.usuario_cierre = usuario
+        
+        self.calcular_totales()
+        self.save()
+
+class MovimientoCaja(models.Model):
+    caja = models.ForeignKey(CajaDiaria, on_delete=models.PROTECT, related_name='movimientos')
+    fecha_hora = models.DateTimeField(auto_now_add=True)
+    tipo = models.CharField(max_length=20, choices=[
+        ('INGRESO', 'Ingreso'),
+        ('EGRESO', 'Egreso')
+    ])
+    concepto = models.CharField(max_length=100)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    observacion = models.TextField(blank=True)
+    usuario = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = 'Movimiento de Caja'
+        verbose_name_plural = 'Movimientos de Caja'
+        ordering = ['-fecha_hora']
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} - {self.concepto} - {self.monto}'
 
 

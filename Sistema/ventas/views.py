@@ -15,6 +15,8 @@ from django.db.models.functions import ExtractMonth, Now
 from django.utils import timezone
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from django.db import transaction
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 
@@ -45,8 +47,9 @@ def contar_productos_bajos_stock():
     Cuenta cuántos productos están por debajo de su cantidad mínima sugerida.
     Retorna el número de productos que necesitan reposición.
     """
-    productos_bajos = Producto.objects.filter(
-        Cantidad__lte=10  # Por ahora usamos un valor fijo de 10 como mínimo
+    productos_bajos = Inventario.objects.filter(
+        stock_actual__lte=F('stock_minimo'),
+        stock_actual__gt=0
     ).count()
 
     return productos_bajos
@@ -56,11 +59,10 @@ def obtener_productos_stock_bajo():
     Obtiene la lista de productos con stock bajo para mostrar en el dashboard.
     Retorna los 5 productos más críticos en términos de stock.
     """
-    productos = Producto.objects.filter(
-        Cantidad__lte=10  # Mismo criterio que arriba
-    ).order_by('Cantidad')[:5]  # Ordenamos por cantidad ascendente
-    
-    return productos
+    return Inventario.objects.filter(
+        stock_actual__lte=F('stock_minimo'),
+        stock_actual__gt=0
+    ).select_related('producto').order_by('stock_actual')[:5]
 
 def index_view(request):
     context = {
@@ -121,8 +123,9 @@ def delete_cliente_view(request):
     return redirect('Clientes')
 
 def productos_view(request):
-    productos = Producto.objects.all()
-    print(productos)
+    productos = Producto.objects.select_related(
+        'inventario', 'Marca', 'SubCategoria', 'UnidadDeMedida'
+    ).all()
     form_producto = AddProductoForm()
     form_editar = EditProductoForm()
     context = {
@@ -137,8 +140,26 @@ def add_producto_view(request):
         form = AddProductoForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                form.save()
+                with transaction.atomic():
+                    # Guardamos el producto
+                    producto = form.save()
+                    
+                    # Actualizamos el stock mínimo y máximo en el inventario
+                    stock_minimo = form.cleaned_data['stock_minimo']
+                    stock_maximo = form.cleaned_data['stock_maximo']
+                    
+                    # Validamos que el stock máximo sea mayor al mínimo
+                    if stock_maximo < stock_minimo:
+                        raise ValueError("El stock máximo no puede ser menor al stock mínimo")
+                    
+                    inventario = producto.inventario
+                    inventario.stock_minimo = stock_minimo
+                    inventario.stock_maximo = stock_maximo
+                    inventario.save()
+                    
                 messages.success(request, "Producto agregado exitosamente.")
+            except ValueError as e:
+                messages.error(request, str(e))
             except Exception as e:
                 messages.error(request, f"Error al guardar el producto: {str(e)}")
         else:
@@ -324,13 +345,15 @@ def ticket_pdf(request, pk):
 def obtener_estadisticas_inventario():
     """Obtiene estadísticas generales del inventario"""
     total_productos = Producto.objects.filter(activo=True).count()
-    productos_sin_stock = Producto.objects.filter(Cantidad__lte=0).count()
-    productos_stock_bajo = Producto.objects.filter(
-        Cantidad__gt=0,
-        Cantidad__lte=F('CantidadMinimaSugerida')
+    productos_sin_stock = Inventario.objects.filter(stock_actual__lte=0).count()
+    productos_stock_bajo = Inventario.objects.filter(
+        stock_actual__gt=0,
+        stock_actual__lte=F('stock_minimo')
     ).count()
-    valor_total_inventario = Producto.objects.filter(activo=True).aggregate(
-        total=Sum(F('Cantidad') * F('PrecioCosto'))
+    valor_total_inventario = Inventario.objects.filter(
+        producto__activo=True
+    ).aggregate(
+        total=Sum(F('stock_actual') * F('producto__PrecioCosto'))
     )['total'] or 0
 
     return {
@@ -342,13 +365,12 @@ def obtener_estadisticas_inventario():
 
 def obtener_productos_criticos():
     """Obtiene lista de productos que necesitan atención"""
-    return Producto.objects.filter(
-        activo=True
-    ).filter(
-        Cantidad__lte=F('CantidadMinimaSugerida')
-    ).annotate(
-        dias_sin_movimiento=ExtractMonth(Now() - F('FechaUltimaModificacion'))
-    ).order_by('Cantidad')[:10]
+    return Inventario.objects.filter(
+        producto__activo=True,
+        stock_actual__lte=F('stock_minimo')
+    ).select_related('producto').annotate(
+        dias_sin_movimiento=ExtractMonth(Now() - F('ultima_actualizacion'))
+    ).order_by('stock_actual')[:10]
 
 def obtener_movimientos_recientes():
     """Obtiene los últimos movimientos de inventario"""
@@ -395,42 +417,170 @@ def ajuste_inventario(request, producto_id):
     """
     Vista para realizar ajustes manuales al inventario de un producto
     """
-    producto = get_object_or_404(Producto, pk=producto_id)
-    inventario = producto.inventario
+    try:
+        producto = get_object_or_404(Producto, pk=producto_id)
+        inventario = producto.inventario
+        
+        if not inventario:
+            messages.error(request, 'El producto no tiene inventario configurado.')
+            return redirect('Productos')
 
-    if request.method == 'POST':
-        form = AjusteInventarioForm(request.POST)
-        if form.is_valid():
-            ajuste = form.save(commit=False)
-            ajuste.producto = producto
-            ajuste.usuario = request.user.username if request.user.is_authenticated else 'Sistema'
-            
-            try:
-                # Crear la transacción de inventario
-                TransaccionInventario.objects.create(
-                    inventario=inventario,
-                    tipo_movimiento='AJU',
-                    origen_movimiento='AJU',
-                    cantidad=ajuste.cantidad,
-                    stock_anterior=inventario.stock_actual,
-                    stock_nuevo=inventario.stock_actual + ajuste.cantidad,
-                    documento_referencia=f'Ajuste Manual #{ajuste.id}',
-                    usuario=ajuste.usuario,
-                    observacion=ajuste.justificacion
-                )
+        if request.method == 'POST':
+            form = AjusteInventarioForm(request.POST)
+            if form.is_valid():
+                from django.db import transaction
                 
-                # Actualizar el stock del producto
-                inventario.stock_actual += ajuste.cantidad
-                inventario.save()
-                
-                ajuste.save()
-                messages.success(request, 'Ajuste de inventario realizado correctamente.')
-            except Exception as e:
-                messages.error(request, f'Error al realizar el ajuste: {str(e)}')
-        else:
-            messages.error(request, 'Error en el formulario. Por favor, verifica los datos.')
+                with transaction.atomic():
+                    ajuste = form.save(commit=False)
+                    ajuste.producto = producto
+                    ajuste.usuario = request.user.username if request.user.is_authenticated else 'Sistema'
+                    
+                    tipo_ajuste = ajuste.tipo_ajuste
+                    cantidad = ajuste.cantidad
+                    stock_anterior = inventario.stock_actual
+                    
+                    if tipo_ajuste == 'CNT':
+                        # Para conteo, la cantidad_ajuste es la diferencia
+                        cantidad_ajuste = cantidad - stock_anterior
+                        nuevo_stock = cantidad  # El stock será exactamente la cantidad ingresada
+                    else:
+                        # Para entrada suma, para salida resta
+                        cantidad_ajuste = cantidad if tipo_ajuste == 'ENT' else -cantidad
+                        nuevo_stock = stock_anterior + cantidad_ajuste
+                    
+                    # Verificar que hay suficiente stock para salidas
+                    if nuevo_stock < 0:
+                        messages.error(request, 'No hay suficiente stock para realizar esta salida.')
+                        return redirect('Productos')
+                    
+                    # Guardamos el ajuste
+                    ajuste.save()
+                    
+                    # Creamos la transacción
+                    TransaccionInventario.objects.create(
+                        inventario=inventario,
+                        tipo_movimiento='AJU',
+                        origen_movimiento='AJU',
+                        cantidad=cantidad_ajuste,
+                        stock_anterior=stock_anterior,
+                        stock_nuevo=nuevo_stock,
+                        documento_referencia=f'Ajuste Manual #{ajuste.id}',
+                        usuario=ajuste.usuario,
+                        observacion=ajuste.justificacion
+                    )
+                    
+                    # Actualizamos el stock directamente para evitar problemas con F()
+                    inventario.stock_actual = nuevo_stock
+                    inventario.save()
+                    
+                    messages.success(request, 'Ajuste de inventario realizado correctamente.')
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f'Error en el campo {field}: {error}')
+    except Exception as e:
+        messages.error(request, f'Error inesperado: {str(e)}')
     
-    return redirect('historial_movimientos_producto', producto_id=producto_id)
+    return redirect('Productos')
+
+@login_required
+def caja_view(request):
+    # Verificar si hay una caja abierta
+    caja_abierta = CajaDiaria.objects.filter(estado='ABIERTA').first()
+    
+    if request.method == 'POST':
+        if 'abrir_caja' in request.POST:
+            monto_inicial = request.POST.get('monto_inicial')
+            if monto_inicial:
+                if not caja_abierta:
+                    caja = CajaDiaria.objects.create(
+                        monto_inicial=monto_inicial,
+                        usuario_apertura=request.user
+                    )
+                    messages.success(request, 'Caja abierta correctamente')
+                else:
+                    messages.error(request, 'Ya existe una caja abierta')
+            else:
+                messages.error(request, 'Debe ingresar un monto inicial')
+                
+        elif 'cerrar_caja' in request.POST:
+            if caja_abierta:
+                monto_final = request.POST.get('monto_final')
+                observaciones = request.POST.get('observaciones', '')
+                
+                if monto_final:
+                    try:
+                        caja_abierta.cerrar_caja(
+                            monto_final=monto_final,
+                            observaciones=observaciones,
+                            usuario=request.user
+                        )
+                        messages.success(request, 'Caja cerrada correctamente')
+                    except ValueError as e:
+                        messages.error(request, str(e))
+                else:
+                    messages.error(request, 'Debe ingresar el monto final')
+            else:
+                messages.error(request, 'No hay una caja abierta')
+                
+        elif 'registrar_movimiento' in request.POST:
+            if caja_abierta:
+                tipo = request.POST.get('tipo')
+                concepto = request.POST.get('concepto')
+                monto = request.POST.get('monto')
+                observacion = request.POST.get('observacion', '')
+                
+                if all([tipo, concepto, monto]):
+                    MovimientoCaja.objects.create(
+                        caja=caja_abierta,
+                        tipo=tipo,
+                        concepto=concepto,
+                        monto=monto,
+                        observacion=observacion,
+                        usuario=request.user
+                    )
+                    messages.success(request, 'Movimiento registrado correctamente')
+                else:
+                    messages.error(request, 'Todos los campos son obligatorios')
+            else:
+                messages.error(request, 'No hay una caja abierta')
+    
+    # Obtener datos para el template
+    context = {
+        'caja_actual': caja_abierta,
+        'movimientos': MovimientoCaja.objects.filter(caja=caja_abierta) if caja_abierta else None,
+        'ventas_dia': Venta.objects.filter(
+            Fecha__date=timezone.now().date()
+        ) if caja_abierta else None
+    }
+    
+    if caja_abierta:
+        caja_abierta.calcular_totales()
+        context.update({
+            'total_ventas': caja_abierta.total_ventas,
+            'total_efectivo': caja_abierta.total_efectivo,
+            'total_tarjeta': caja_abierta.total_tarjeta,
+            'total_transferencia': caja_abierta.total_transferencia
+        })
+    
+    return render(request, 'caja/caja.html', context)
+
+@login_required
+def historial_cajas_view(request):
+    cajas = CajaDiaria.objects.all()
+    return render(request, 'caja/historial_cajas.html', {'cajas': cajas})
+
+@login_required
+def detalle_caja_view(request, caja_id):
+    caja = get_object_or_404(CajaDiaria, id=caja_id)
+    context = {
+        'caja': caja,
+        'movimientos': caja.movimientos.all(),
+        'ventas': Venta.objects.filter(
+            Fecha__date=caja.fecha
+        )
+    }
+    return render(request, 'caja/detalle_caja.html', context)
 
 
 

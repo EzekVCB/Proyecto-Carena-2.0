@@ -132,7 +132,10 @@ class UnidadDeMedidaAdmin(admin.ModelAdmin):
         return super(UnidadDeMedidaAdmin, self).changelist_view(request, extra_context=extra_context)
 
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ('Nombre', 'SubCategoria', 'Marca', 'Proveedor', 'CodigoDeBarras', 'Descripcion', 'Cantidad', 'CantidadMinimaSugerida', 'UnidadDeMedida', 'PrecioCosto', 'PrecioDeLista', 'PrecioDeContado', 'FechaUltimaModificacion')
+    list_display = ('Nombre', 'SubCategoria', 'Marca', 'Proveedor', 'CodigoDeBarras', 'Descripcion', 
+                   'UnidadDeMedida', 'PrecioCosto', 'PrecioDeLista', 'PrecioDeContado', 'FechaUltimaModificacion')
+    search_fields = ('Nombre', 'CodigoDeBarras')
+    list_filter = ('SubCategoria', 'Marca', 'Proveedor')
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [

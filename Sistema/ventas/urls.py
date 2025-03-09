@@ -21,4 +21,7 @@ urlpatterns = [
     path('delete_categoria/', views.delete_categoria_view, name = 'DeleteCategoria'),
     path('inventario/producto/<int:producto_id>/movimientos/', views.historial_movimientos_producto, name='historial_movimientos_producto'),
     path('inventario/producto/<int:producto_id>/ajuste/', views.ajuste_inventario, name='ajuste_inventario'),
+    path('caja/', views.caja_view, name='caja'),
+    path('caja/historial/', views.historial_cajas_view, name='historial_cajas'),
+    path('caja/<int:caja_id>/', views.detalle_caja_view, name='detalle_caja'),
 ]

@@ -1,6 +1,25 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block extra_css %}
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/searchbuilder/1.6.0/css/searchBuilder.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/searchpanes/2.2.0/css/searchPanes.bootstrap4.min.css">
+<style>
+    .dataTables_filter {
+        margin-bottom: 10px;
+    }
+    table.dataTable thead input {
+        width: 100%;
+        padding: 3px;
+        box-sizing: border-box;
+        margin-top: 3px;
+        margin-bottom: 3px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row">
@@ -8,31 +27,26 @@
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">Historial de Movimientos - {{ producto.Nombre }}</h3>
-                    <div class="card-tools">
-                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalAjuste">
-                            Realizar Ajuste
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body">
                     <!-- Información del Producto -->
                     <div class="row mb-4">
                         <div class="col-md-3">
-                            <strong>Stock Actual:</strong> {{ producto.Cantidad }}
+                            <strong>Stock Actual:</strong> {{ producto.inventario.stock_actual }} {{ producto.UnidadDeMedida }}
                         </div>
                         <div class="col-md-3">
-                            <strong>Stock Mínimo:</strong> {{ producto.CantidadMinimaSugerida }}
+                            <strong>Stock Mínimo:</strong> {{ producto.inventario.stock_minimo }} {{ producto.UnidadDeMedida }}
                         </div>
                         <div class="col-md-3">
-                            <strong>Última Modificación:</strong> {{ producto.FechaUltimaModificacion }}
+                            <strong>Última Actualización:</strong> {{ producto.inventario.ultima_actualizacion|date:"d/m/Y H:i" }}
                         </div>
                         <div class="col-md-3">
-                            <strong>Estado:</strong> {{ producto.estado_stock }}
+                            <strong>Estado:</strong> {{ producto.inventario.estado_stock }}
                         </div>
                     </div>
 
                     <!-- Tabla de Movimientos -->
-                    <table class="table table-bordered table-striped">
+                    <table class="table table-bordered table-striped" id="tabla-movimientos">
                         <thead>
                             <tr>
                                 <th>Fecha</th>
@@ -71,53 +85,74 @@
         </div>
     </div>
 </div>
-
-<!-- Modal de Ajuste -->
-<div class="modal fade" id="modalAjuste" tabindex="-1" role="dialog" aria-labelledby="modalAjusteLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalAjusteLabel">Ajuste de Inventario</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form method="post" action="{% url 'ajuste_inventario' producto.id %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="id_tipo_ajuste">Tipo de Ajuste</label>
-                        {{ form.tipo_ajuste }}
-                    </div>
-                    <div class="form-group">
-                        <label for="id_cantidad">Cantidad</label>
-                        {{ form.cantidad }}
-                    </div>
-                    <div class="form-group">
-                        <label for="id_justificacion">Justificación</label>
-                        {{ form.justificacion }}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Ajuste</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap4.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/searchbuilder/1.6.0/js/dataTables.searchBuilder.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/searchbuilder/1.6.0/js/searchBuilder.bootstrap4.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/searchpanes/2.2.0/js/dataTables.searchPanes.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/searchpanes/2.2.0/js/searchPanes.bootstrap4.min.js"></script>
+
 <script>
-    $(document).ready(function() {
-        // Inicializar DataTable
-        $('.table').DataTable({
-            "order": [[0, "desc"]],  // Ordenar por fecha descendente
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+$(document).ready(function() {
+    // Inicializar DataTable con opciones avanzadas
+    $('#tabla-movimientos').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]],
+        "pageLength": 10,
+        "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+               '<"row"<"col-sm-12"tr>>' +
+               '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+        "searchBuilder": true,
+        "searchPanes": true,
+        "buttons": [
+            'copy', 'excel', 'pdf', 'print'
+        ],
+        "columnDefs": [
+            {
+                "targets": [1, 2], // Columnas de Tipo y Origen
+                "searchable": true,
+                "orderable": true
+            },
+            {
+                "targets": [3, 4, 5], // Columnas numéricas (Cantidad, Stock Anterior, Stock Nuevo)
+                "type": "num"
+            },
+            {
+                "targets": [0], // Columna de fecha
+                "type": "date"
             }
-        });
+        ],
+        "initComplete": function () {
+            // Agregar filtros individuales en el encabezado
+            this.api().columns().every(function () {
+                var column = this;
+                var title = $(column.header()).text();
+                
+                // Crear el input de búsqueda para cada columna
+                var input = $('<input type="text" class="form-control form-control-sm" placeholder="Buscar ' + title + '">')
+                    .appendTo($(column.header()))
+                    .on('keyup change', function () {
+                        if (column.search() !== this.value) {
+                            column
+                                .search(this.value)
+                                .draw();
+                        }
+                    });
+            });
+        }
     });
+});
 </script>
 {% endblock %} 

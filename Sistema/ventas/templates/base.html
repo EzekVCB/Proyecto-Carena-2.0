@@ -25,12 +25,14 @@
   <!-- summernote -->
   <link rel="stylesheet" href="{% static 'lib/adminlite/plugins/summernote/summernote-bs4.min.css' %}">
   <link rel="stylesheet" href="{% static 'index/css/main.css' %}">
+  <!-- DataTables -->
   <link rel="stylesheet" type="text/css" href="{% static 'index/DataTables/datatables.min.css' %}">
-  <link rel="stylesheet" type="text/css"
-    href="{% static 'index/DataTables/Buttons-2.0.1/css/buttons.dataTables.min.css' %}">
-
-  <script type="text/javascript" charset="utf8" src="{% static 'index/js/jquery.js' %}"></script>
+  <link rel="stylesheet" type="text/css" href="{% static 'index/DataTables/Buttons-2.0.1/css/buttons.dataTables.min.css' %}">
+  <!-- jQuery UI -->
   <link rel="stylesheet" href="{% static 'jquery-ui/jquery-ui.min.css' %}">
+
+  <!-- jQuery -->
+  <script type="text/javascript" charset="utf8" src="{% static 'index/js/jquery.js' %}"></script>
   <script src="{% static 'jquery-ui/jquery-ui.min.js' %}"></script>
   <script type="text/javascript" charset="utf8" src="{% static 'index/js/sweet.js' %}"></script>
 
@@ -197,47 +199,38 @@
   </div>
   <!-- ./wrapper -->
 
-  <!-- jQuery -->
+  <!-- SCRIPTS -->
+  <!-- jQuery and jQuery UI -->
   <script src="{% static 'lib/adminlite/plugins/jquery/jquery.min.js' %}"></script>
-  <!-- jQuery UI 1.11.4 -->
   <script src="{% static 'lib/adminlite/plugins/jquery-ui/jquery-ui.min.js' %}"></script>
-  <!-- Resolve conflict in jQuery UI tooltip with Bootstrap tooltip -->
-  <script>
-    $.widget.bridge('uibutton', $.ui.button)
-  </script>
+  <script>$.widget.bridge('uibutton', $.ui.button)</script>
+
   <!-- Bootstrap 4 -->
   <script src="{% static 'lib/adminlite/plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-  <!-- ChartJS -->
-  <!-- Sparkline -->
-  <script src="{% static 'lib/adminlite/plugins/sparklines/sparkline.js' %}"></script>
-  <!-- JQVMap -->
-  <script src="{% static 'lib/adminlite/plugins/jqvmap/jquery.vmap.min.js' %}"></script>
-  <script src="{% static 'lib/adminlite/plugins/jqvmap/maps/jquery.vmap.usa.js' %}"></script>
-  <!-- jQuery Knob Chart -->
-  <script src="{% static 'lib/adminlite/plugins/jquery-knob/jquery.knob.min.js' %}"></script>
-  <!-- daterangepicker -->
+  
+  <!-- AdminLTE Core -->
+  <script src="{% static 'lib/adminlite/js/adminlte.js' %}"></script>
+  
+  <!-- Plugins -->
   <script src="{% static 'lib/adminlite/plugins/moment/moment.min.js' %}"></script>
   <script src="{% static 'lib/adminlite/plugins/daterangepicker/daterangepicker.js' %}"></script>
-  <!-- Tempusdominus Bootstrap 4 -->
-  <script
-    src="{% static 'lib/adminlite/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js' %}"></script>
-  <!-- Summernote -->
-  <script src=" {% static 'lib/adminlite/plugins/summernote/summernote-bs4.min.js' %}"></script>
-  <!-- overlayScrollbars -->
-  <script src=" {% static 'lib/adminlite/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js' %}"></script>
-  <!-- AdminLTE App -->
-  <script src="{% static 'lib/adminlite/js/adminlte.js' %}"></script>
-  <!-- AdminLTE for demo purposes -->
-  <script src="{% static 'lib/adminlite/js/demo.js' %}"></script>
-  <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-  <script src="{% static 'lib/adminlite/js/pages/dashboard.js' %}"></script>
-  <script src="{% static 'index/DataTables/datatables.min.js' %}"></script>
+  <script src="{% static 'lib/adminlite/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js' %}"></script>
+  <script src="{% static 'lib/adminlite/plugins/summernote/summernote-bs4.min.js' %}"></script>
+  <script src="{% static 'lib/adminlite/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js' %}"></script>
+  
+  <!-- DataTables and Buttons -->
   <script src="{% static 'index/DataTables/datatables.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/dataTables.buttons.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/buttons.print.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/buttons.html5.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/pdfmaker.min.js' %}"></script>
-  <script type="text/javascript" charset="utf8" src="{% static 'index/js/main.js' %}"></script>
+
+  <!-- SweetAlert -->
+  <script src="{% static 'index/js/sweet.js' %}"></script>
+
+  <!-- Custom Scripts -->
+  {% block extra_js %}{% endblock %}
+  <script src="{% static 'index/js/main.js' %}"></script>
 </body>
 
 </html>
