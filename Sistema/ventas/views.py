@@ -1,18 +1,20 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from .models import *
 from .forms import *
 from django.contrib import messages
 
 from django.views.generic import ListView
 from django.http import JsonResponse, HttpResponse
-from weasyprint.text.fonts import FontConfiguration
+# from weasyprint.text.fonts import FontConfiguration
 from django.template.loader import get_template
-from weasyprint import HTML, CSS
+# from weasyprint import HTML, CSS
 from django.conf import settings
 import os
-from django.db.models import Sum
+from django.db.models import Sum, Count, Avg, F, ExpressionWrapper, DecimalField
+from django.db.models.functions import ExtractMonth, Now
 from django.utils import timezone
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+from decimal import Decimal
 
 # Create your views here.
 
@@ -298,10 +300,137 @@ def export_pdf_view(request, id, iva):
     css_url = os.path.join(settings.BASE_DIR,'index/static/index/css/bootstrap.min.css')
     #HTML(string=html_template).write_pdf(target="ticket.pdf", stylesheets=[CSS(css_url)])
 
+    # Comentar temporalmente weasyprint
+    # from weasyprint.text.fonts import FontConfiguration
     font_config = FontConfiguration()
     HTML(string=html_template, base_url=request.build_absolute_uri()).write_pdf(target=response, font_config=font_config,stylesheets=[CSS(css_url)])
 
     return response
+
+def ticket_pdf(request, pk):
+    venta = Venta.objects.get(id=pk)
+    template = get_template("ventas/ticket.html")
+    context = {"venta": venta}
+    html_template = template.render(context)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="ticket.pdf"'
+    
+    # Comentar temporalmente la generación del PDF
+    # font_config = FontConfiguration()
+    # HTML(string=html_template, base_url=request.build_absolute_uri()).write_pdf(target=response, font_config=font_config,stylesheets=[CSS(css_url)])
+    
+    return response
+
+def obtener_estadisticas_inventario():
+    """Obtiene estadísticas generales del inventario"""
+    total_productos = Producto.objects.filter(activo=True).count()
+    productos_sin_stock = Producto.objects.filter(Cantidad__lte=0).count()
+    productos_stock_bajo = Producto.objects.filter(
+        Cantidad__gt=0,
+        Cantidad__lte=F('CantidadMinimaSugerida')
+    ).count()
+    valor_total_inventario = Producto.objects.filter(activo=True).aggregate(
+        total=Sum(F('Cantidad') * F('PrecioCosto'))
+    )['total'] or 0
+
+    return {
+        'total_productos': total_productos,
+        'productos_sin_stock': productos_sin_stock,
+        'productos_stock_bajo': productos_stock_bajo,
+        'valor_total_inventario': valor_total_inventario
+    }
+
+def obtener_productos_criticos():
+    """Obtiene lista de productos que necesitan atención"""
+    return Producto.objects.filter(
+        activo=True
+    ).filter(
+        Cantidad__lte=F('CantidadMinimaSugerida')
+    ).annotate(
+        dias_sin_movimiento=ExtractMonth(Now() - F('FechaUltimaModificacion'))
+    ).order_by('Cantidad')[:10]
+
+def obtener_movimientos_recientes():
+    """Obtiene los últimos movimientos de inventario"""
+    return TransaccionInventario.objects.select_related(
+        'inventario__producto'
+    ).order_by('-fecha')[:10]
+
+def obtener_productos_por_vencer():
+    """Obtiene productos próximos a vencer"""
+    fecha_limite = datetime.now().date() + timedelta(days=30)
+    return Lote.objects.filter(
+        fecha_vencimiento__lte=fecha_limite,
+        fecha_vencimiento__gte=datetime.now().date(),
+        estado='ACTIVO'
+    ).select_related('producto').order_by('fecha_vencimiento')[:10]
+
+def dashboard_inventario(request):
+    """Vista principal del dashboard de inventario"""
+    context = {
+        'estadisticas': obtener_estadisticas_inventario(),
+        'productos_criticos': obtener_productos_criticos(),
+        'movimientos_recientes': obtener_movimientos_recientes(),
+        'productos_por_vencer': obtener_productos_por_vencer(),
+    }
+    return render(request, 'inventario/dashboard.html', context)
+
+def historial_movimientos_producto(request, producto_id):
+    """
+    Vista para mostrar el historial de movimientos de un producto
+    """
+    producto = get_object_or_404(Producto, pk=producto_id)
+    inventario = producto.inventario
+    movimientos = TransaccionInventario.objects.filter(inventario=inventario).order_by('-fecha')
+    form = AjusteInventarioForm()
+
+    context = {
+        'producto': producto,
+        'movimientos': movimientos,
+        'form': form,
+    }
+    return render(request, 'inventario/historial_movimientos.html', context)
+
+def ajuste_inventario(request, producto_id):
+    """
+    Vista para realizar ajustes manuales al inventario de un producto
+    """
+    producto = get_object_or_404(Producto, pk=producto_id)
+    inventario = producto.inventario
+
+    if request.method == 'POST':
+        form = AjusteInventarioForm(request.POST)
+        if form.is_valid():
+            ajuste = form.save(commit=False)
+            ajuste.producto = producto
+            ajuste.usuario = request.user.username if request.user.is_authenticated else 'Sistema'
+            
+            try:
+                # Crear la transacción de inventario
+                TransaccionInventario.objects.create(
+                    inventario=inventario,
+                    tipo_movimiento='AJU',
+                    origen_movimiento='AJU',
+                    cantidad=ajuste.cantidad,
+                    stock_anterior=inventario.stock_actual,
+                    stock_nuevo=inventario.stock_actual + ajuste.cantidad,
+                    documento_referencia=f'Ajuste Manual #{ajuste.id}',
+                    usuario=ajuste.usuario,
+                    observacion=ajuste.justificacion
+                )
+                
+                # Actualizar el stock del producto
+                inventario.stock_actual += ajuste.cantidad
+                inventario.save()
+                
+                ajuste.save()
+                messages.success(request, 'Ajuste de inventario realizado correctamente.')
+            except Exception as e:
+                messages.error(request, f'Error al realizar el ajuste: {str(e)}')
+        else:
+            messages.error(request, 'Error en el formulario. Por favor, verifica los datos.')
+    
+    return redirect('historial_movimientos_producto', producto_id=producto_id)
 
 
 

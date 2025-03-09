@@ -19,4 +19,6 @@ urlpatterns = [
     path('add_categoria/', views.add_categoria_view, name = 'AddCategoria'),
     path('edit_categoria/', views.edit_categoria_view, name = 'EditCategoria'),
     path('delete_categoria/', views.delete_categoria_view, name = 'DeleteCategoria'),
+    path('inventario/producto/<int:producto_id>/movimientos/', views.historial_movimientos_producto, name='historial_movimientos_producto'),
+    path('inventario/producto/<int:producto_id>/ajuste/', views.ajuste_inventario, name='ajuste_inventario'),
 ]

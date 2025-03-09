@@ -113,7 +113,11 @@
                     <tr>
                         <th>Nombre</th>
                         <th>Marca</th>
-                        <th>Cantidad</th>
+                        <th>Categoría</th>
+                        <th>Stock Actual</th>
+                        <th>Stock Mínimo</th>
+                        <th>Estado</th>
+                        <th>Última Actualización</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -121,17 +125,61 @@
                     {% for producto in productos %}
                     <tr>
                         <td>{{ producto.Nombre }}</td>
-                        <td></td>
-                        <td>{{ producto.Cantidad }}</td>
+                        <td>{{ producto.Marca }}</td>
+                        <td>{{ producto.SubCategoria }}</td>
                         <td>
-                            <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
-                                class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal">
-                                <img src="{% static 'index/img/editar.png' %}" alt="Editar" width="30">
-                            </button>
-                            <button onclick="eliminarProducto('{{ producto.id }}')"
-                                class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EliminarProductoModal">
-                                <img src="{% static 'index/img/delete.png' %}" alt="Eliminar" width="30">
-                            </button>
+                            {% if producto.inventario %}
+                                {{ producto.inventario.stock_actual }} {{ producto.UnidadDeMedida }}
+                            {% else %}
+                                No configurado
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if producto.inventario %}
+                                {{ producto.inventario.stock_minimo }} {{ producto.UnidadDeMedida }}
+                            {% else %}
+                                No configurado
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if producto.inventario %}
+                                {% with estado=producto.inventario.estado_stock %}
+                                    {% if estado == 'Sin stock' %}
+                                        <span class="badge badge-danger">{{ estado }}</span>
+                                    {% elif estado == 'Stock bajo' %}
+                                        <span class="badge badge-warning">{{ estado }}</span>
+                                    {% elif estado == 'Stock normal' %}
+                                        <span class="badge badge-success">{{ estado }}</span>
+                                    {% elif estado == 'Sobrestock' %}
+                                        <span class="badge badge-info">{{ estado }}</span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                <span class="badge badge-secondary">Sin configurar</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if producto.inventario %}
+                                {{ producto.inventario.ultima_actualizacion|date:"d/m/Y H:i" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
+                                    class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <a href="{% url 'historial_movimientos_producto' producto.id %}" 
+                                   class="btn btn-info btn-sm" title="Ver movimientos">
+                                    <i class="fas fa-history"></i>
+                                </a>
+                                <button onclick="eliminarProducto('{{ producto.id }}')"
+                                    class="btn btn-danger btn-sm" data-toggle="modal" href="#EliminarProductoModal" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -145,11 +193,55 @@
 {% for message in messages %}
 <script>
     Swal.fire({
-        icon: 'error',
-        title: 'Error...',
-        text: "{{ message }}",
+        "title": "{{ message.tags|title }}",
+        "text": "{{ message }}",
+        "icon": "{{ message.tags }}"
     });
 </script>
 {% endfor %}
 {% endif %}
+
+<script>
+$(document).ready(function() {
+    if (!$.fn.DataTable.isDataTable('#myTable')) {
+        $('#myTable').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+            },
+            "order": [[5, "asc"]], // Ordenar por estado de stock
+            "pageLength": 25,
+            "responsive": true,
+            "autoWidth": false,
+            "dom": 'Bfrtip',
+            "buttons": [
+                {
+                    extend: 'excel',
+                    text: '<i class="fas fa-file-excel"></i> Excel',
+                    className: 'btn btn-success btn-sm',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5, 6]
+                    }
+                },
+                {
+                    extend: 'pdf',
+                    text: '<i class="fas fa-file-pdf"></i> PDF',
+                    className: 'btn btn-danger btn-sm',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5, 6]
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fas fa-print"></i> Imprimir',
+                    className: 'btn btn-info btn-sm',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4, 5, 6]
+                    }
+                }
+            ]
+        });
+    }
+});
+</script>
+
 {% endblock %}

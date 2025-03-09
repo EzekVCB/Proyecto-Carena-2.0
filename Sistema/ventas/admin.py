@@ -269,6 +269,57 @@ class CuentaAdmin(admin.ModelAdmin):
         DetalleCuentaInline,
     ]
 
+class TransaccionInventarioInline(admin.TabularInline):
+    model = TransaccionInventario
+    readonly_fields = ('fecha', 'tipo_movimiento', 'origen_movimiento', 'cantidad', 'stock_anterior', 'stock_nuevo', 'usuario', 'documento_referencia', 'observacion')
+    can_delete = False
+    extra = 0
+    max_num = 0
+    ordering = ('-fecha',)
+
+class InventarioAdmin(admin.ModelAdmin):
+    list_display = ('producto', 'stock_actual', 'stock_minimo', 'stock_maximo', 'ubicacion', 'ultima_actualizacion', 'estado_stock')
+    list_filter = ('producto__SubCategoria', 'producto__Marca')
+    search_fields = ('producto__Nombre', 'ubicacion')
+    readonly_fields = ('ultima_actualizacion',)
+    inlines = [TransaccionInventarioInline]
+    
+    def has_delete_permission(self, request, obj=None):
+        return False  # Evita la eliminación de registros de inventario
+
+    fieldsets = (
+        ('Información del Producto', {
+            'fields': ('producto',)
+        }),
+        ('Control de Stock', {
+            'fields': (('stock_actual', 'stock_minimo', 'stock_maximo'),)
+        }),
+        ('Información Adicional', {
+            'fields': ('ubicacion', 'notas', 'ultima_actualizacion')
+        }),
+    )
+
+class TransaccionInventarioAdmin(admin.ModelAdmin):
+    list_display = ('inventario', 'fecha', 'tipo_movimiento', 'origen_movimiento', 'cantidad', 'stock_anterior', 'stock_nuevo', 'usuario')
+    list_filter = ('tipo_movimiento', 'origen_movimiento', 'fecha', 'inventario__producto__SubCategoria')
+    search_fields = ('inventario__producto__Nombre', 'documento_referencia', 'usuario')
+    readonly_fields = ('fecha', 'stock_anterior', 'stock_nuevo')
+    ordering = ('-fecha',)
+
+class LoteAdmin(admin.ModelAdmin):
+    list_display = ('producto', 'numero_lote', 'fecha_vencimiento', 'cantidad_inicial', 'cantidad_actual', 'estado', 'dias_para_vencer')
+    list_filter = ('estado', 'producto__SubCategoria', 'proveedor')
+    search_fields = ('numero_lote', 'producto__Nombre', 'factura_compra')
+    readonly_fields = ('fecha_entrada',)
+    ordering = ('fecha_vencimiento',)
+
+class AjusteInventarioAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'producto', 'tipo_ajuste', 'cantidad', 'usuario', 'aprobado')
+    list_filter = ('tipo_ajuste', 'aprobado', 'fecha', 'producto__SubCategoria')
+    search_fields = ('producto__Nombre', 'justificacion', 'usuario')
+    readonly_fields = ('fecha', 'fecha_aprobacion')
+    ordering = ('-fecha',)
+
 admin.site.register(Cliente, ClienteAdmin)
 admin.site.register(Proveedor, ProveedorAdmin)
 admin.site.register(Categoria, CategoriaAdmin)
@@ -281,5 +332,9 @@ admin.site.register(Venta, VentaAdmin)
 admin.site.register(Presupuesto, PresupuestoAdmin)
 admin.site.register(Compra, CompraAdmin)
 admin.site.register(Cuenta, CuentaAdmin)
+admin.site.register(Inventario, InventarioAdmin)
+admin.site.register(TransaccionInventario, TransaccionInventarioAdmin)
+admin.site.register(Lote, LoteAdmin)
+admin.site.register(AjusteInventario, AjusteInventarioAdmin)
 
 

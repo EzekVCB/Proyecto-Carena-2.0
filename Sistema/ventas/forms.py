@@ -1,5 +1,5 @@
 from django import forms
-from ventas.models import Cliente, Producto, Categoria
+from ventas.models import Cliente, Producto, Categoria, AjusteInventario
 
 class AddClienteForm(forms.ModelForm):
     class Meta:
@@ -116,4 +116,14 @@ class EditCategoriaForm(forms.ModelForm):
         }
         widgets = {
             'Nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'nombre_editar'}),
+        }
+
+class AjusteInventarioForm(forms.ModelForm):
+    class Meta:
+        model = AjusteInventario
+        fields = ['tipo_ajuste', 'cantidad', 'justificacion']
+        widgets = {
+            'tipo_ajuste': forms.Select(attrs={'class': 'form-control'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control'}),
+            'justificacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
