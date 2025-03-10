@@ -281,9 +281,9 @@ class TransaccionInventarioInline(admin.TabularInline):
     ordering = ('-fecha',)
 
 class InventarioAdmin(admin.ModelAdmin):
-    list_display = ('producto', 'stock_actual', 'stock_minimo', 'stock_maximo', 'ubicacion', 'ultima_actualizacion', 'estado_stock')
+    list_display = ('producto', 'stock_actual', 'stock_minimo', 'stock_maximo', 'ultima_actualizacion', 'estado_stock')
     list_filter = ('producto__SubCategoria', 'producto__Marca')
-    search_fields = ('producto__Nombre', 'ubicacion')
+    search_fields = ('producto__Nombre',)
     readonly_fields = ('ultima_actualizacion',)
     inlines = [TransaccionInventarioInline]
     
@@ -309,13 +309,6 @@ class TransaccionInventarioAdmin(admin.ModelAdmin):
     readonly_fields = ('fecha', 'stock_anterior', 'stock_nuevo')
     ordering = ('-fecha',)
 
-class LoteAdmin(admin.ModelAdmin):
-    list_display = ('producto', 'numero_lote', 'fecha_vencimiento', 'cantidad_inicial', 'cantidad_actual', 'estado', 'dias_para_vencer')
-    list_filter = ('estado', 'producto__SubCategoria', 'proveedor')
-    search_fields = ('numero_lote', 'producto__Nombre', 'factura_compra')
-    readonly_fields = ('fecha_entrada',)
-    ordering = ('fecha_vencimiento',)
-
 class AjusteInventarioAdmin(admin.ModelAdmin):
     list_display = ('fecha', 'producto', 'tipo_ajuste', 'cantidad', 'usuario', 'aprobado')
     list_filter = ('tipo_ajuste', 'aprobado', 'fecha', 'producto__SubCategoria')
@@ -337,7 +330,6 @@ admin.site.register(Compra, CompraAdmin)
 admin.site.register(Cuenta, CuentaAdmin)
 admin.site.register(Inventario, InventarioAdmin)
 admin.site.register(TransaccionInventario, TransaccionInventarioAdmin)
-admin.site.register(Lote, LoteAdmin)
 admin.site.register(AjusteInventario, AjusteInventarioAdmin)
 
 

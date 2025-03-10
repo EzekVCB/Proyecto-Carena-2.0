@@ -58,11 +58,10 @@ class Producto(models.Model):
     PrecioDeContado = models.DecimalField(default=None, null=True, decimal_places=2, max_digits=10)
     FechaUltimaModificacion = models.DateField(null=False)
     activo = models.BooleanField(default=True)  # Para productos descontinuados
-    tiempo_reposicion = models.IntegerField(default=1, help_text="Tiempo en días para reponer el producto")
+  
     ultima_compra = models.DateField(null=True, blank=True)
     ultimo_precio_compra = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
-
+   
     def estado_stock(self):
         if not hasattr(self, 'inventario'):
             return "Sin configurar"
@@ -81,7 +80,7 @@ class Inventario(models.Model):
     stock_actual = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     stock_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     stock_maximo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    ubicacion = models.CharField(max_length=100, null=True, blank=True)
+   
     ultima_actualizacion = models.DateTimeField(auto_now=True)
     notas = models.TextField(blank=True, null=True)
 
@@ -101,43 +100,7 @@ class Inventario(models.Model):
         verbose_name = "Inventario"
         verbose_name_plural = "Inventarios"
 
-class Lote(models.Model):
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='lotes')
-    numero_lote = models.CharField(max_length=50)
-    fecha_fabricacion = models.DateField(null=True, blank=True)
-    fecha_vencimiento = models.DateField(null=True, blank=True)
-    cantidad_inicial = models.DecimalField(max_digits=10, decimal_places=2)
-    cantidad_actual = models.DecimalField(max_digits=10, decimal_places=2)
-    costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
-    fecha_entrada = models.DateField(auto_now_add=True)
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True)
-    factura_compra = models.CharField(max_length=50, blank=True, null=True)
-    estado = models.CharField(max_length=20, choices=[
-        ('ACTIVO', 'Activo'),
-        ('CUARENTENA', 'En Cuarentena'),
-        ('VENCIDO', 'Vencido'),
-        ('AGOTADO', 'Agotado')
-    ], default='ACTIVO')
 
-    def dias_para_vencer(self):
-        if self.fecha_vencimiento:
-            from datetime import date
-            delta = self.fecha_vencimiento - date.today()
-            return delta.days
-        return None
-
-    def esta_por_vencer(self, dias_alerta=30):
-        if self.fecha_vencimiento:
-            return 0 < self.dias_para_vencer() <= dias_alerta
-        return False
-
-    def __str__(self):
-        return f"Lote {self.numero_lote} - {self.producto.Nombre}"
-
-    class Meta:
-        verbose_name = "Lote"
-        verbose_name_plural = "Lotes"
-        ordering = ['fecha_vencimiento']
 
 class TransaccionInventario(models.Model):
     TIPO_MOVIMIENTO = [
@@ -185,7 +148,7 @@ class AjusteInventario(models.Model):
 
     fecha = models.DateTimeField(auto_now_add=True)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
-    lote = models.ForeignKey(Lote, on_delete=models.SET_NULL, null=True, blank=True)
+    
     tipo_ajuste = models.CharField(max_length=3, choices=TIPO_AJUSTE)
     cantidad = models.DecimalField(max_digits=10, decimal_places=2)
     justificacion = models.TextField()
