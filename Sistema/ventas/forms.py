@@ -1,5 +1,5 @@
 from django import forms
-from ventas.models import Cliente, Producto, Categoria, AjusteInventario
+from ventas.models import Cliente, Producto, Categoria, AjusteInventario, SubCategoria
 from django.utils import timezone
 
 class AddClienteForm(forms.ModelForm):
@@ -140,4 +140,22 @@ class AjusteInventarioForm(forms.ModelForm):
             'tipo_ajuste': forms.Select(attrs={'class': 'form-control'}),
             'cantidad': forms.NumberInput(attrs={'class': 'form-control'}),
             'justificacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+class AddSubCategoriaForm(forms.ModelForm):
+    class Meta:
+        model = SubCategoria
+        fields = ['Nombre', 'Categoria']
+        widgets = {
+            'Nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'Categoria': forms.Select(attrs={'class': 'form-control'})
+        }
+
+class EditSubCategoriaForm(forms.ModelForm):
+    class Meta:
+        model = SubCategoria
+        fields = ['Nombre', 'Categoria']
+        widgets = {
+            'Nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'Categoria': forms.Select(attrs={'class': 'form-control'})
         }

@@ -24,4 +24,7 @@ urlpatterns = [
     path('caja/', views.caja_view, name='caja'),
     path('caja/historial/', views.historial_cajas_view, name='historial_cajas'),
     path('caja/<int:caja_id>/', views.detalle_caja_view, name='detalle_caja'),
+    path('add_subcategoria/', views.add_subcategoria_view, name='AddSubcategoria'),
+    path('edit_subcategoria/', views.edit_subcategoria_view, name='EditSubcategoria'),
+    path('delete_subcategoria/', views.delete_subcategoria_view, name='DeleteSubcategoria'),
 ]

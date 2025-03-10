@@ -188,13 +188,18 @@ def delete_producto_view(request):
     return redirect('Productos')
 
 def categorias_view(request):
-    categorias = Categoria.objects.all()
-    form_personal = AddCategoriaForm()
-    form_editar = EditCategoriaForm()
+    categorias = Categoria.objects.prefetch_related('subcategoria_set').all()
+    form_categoria = AddCategoriaForm()
+    form_editar_categoria = EditCategoriaForm()
+    form_subcategoria = AddSubCategoriaForm()
+    form_editar_subcategoria = EditSubCategoriaForm()
+    
     context = {
         'categorias': categorias,
-        'form_personal': form_personal,
-        'form_editar': form_editar,
+        'form_categoria': form_categoria,
+        'form_editar_categoria': form_editar_categoria,
+        'form_subcategoria': form_subcategoria,
+        'form_editar_subcategoria': form_editar_subcategoria,
     }
     return render(request, 'categorias.html', context)
 
@@ -241,7 +246,50 @@ def delete_categoria_view(request):
         print('Estoy en deleteCategoria No eliminado.')
     return redirect('Categorias')
 
+def add_subcategoria_view(request):
+    if request.method == "POST":
+        form = AddSubCategoriaForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "Subcategoría agregada exitosamente.")
+            except Exception as e:
+                messages.error(request, f"Error al guardar la subcategoría: {str(e)}")
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    return redirect('Categorias')
 
+def edit_subcategoria_view(request):
+    if request.method == "POST":
+        subcategoria_id = request.POST.get('id_subcategoria_editar')
+        if subcategoria_id:
+            subcategoria = get_object_or_404(SubCategoria, pk=subcategoria_id)
+            form = EditSubCategoriaForm(request.POST, instance=subcategoria)
+            if form.is_valid():
+                try:
+                    form.save()
+                    messages.success(request, "Subcategoría modificada exitosamente.")
+                except Exception as e:
+                    messages.error(request, f"Error al modificar la subcategoría: {str(e)}")
+            else:
+                messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+        else:
+            messages.error(request, "Error: ID de subcategoría no proporcionado.")
+    return redirect('Categorias')
+
+def delete_subcategoria_view(request):
+    if request.method == "POST":
+        subcategoria_id = request.POST.get('id_subcategoria_eliminar')
+        if subcategoria_id:
+            try:
+                subcategoria = get_object_or_404(SubCategoria, pk=subcategoria_id)
+                subcategoria.delete()
+                messages.success(request, "Subcategoría eliminada exitosamente.")
+            except Exception as e:
+                messages.error(request, f"Error al eliminar la subcategoría: {str(e)}")
+        else:
+            messages.error(request, "Error: ID de subcategoría no proporcionado.")
+    return redirect('Categorias')
 
 #Ventas
 
