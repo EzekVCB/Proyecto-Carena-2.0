@@ -321,15 +321,65 @@ def delete_categoria_view(request):
 
 def add_subcategoria_view(request):
     if request.method == "POST":
-        form = AddSubCategoriaForm(request.POST)
-        if form.is_valid():
-            try:
-                form.save()
-                messages.success(request, "Subcategoría agregada exitosamente.")
-            except Exception as e:
-                messages.error(request, f"Error al guardar la subcategoría: {str(e)}")
-        else:
-            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+        nombre = request.POST.get('Nombre', '').strip()
+        categoria_id = request.POST.get('Categoria')
+        
+        # Validar que se proporcionen los datos necesarios
+        if not nombre or not categoria_id:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'El nombre y la categoría son requeridos'
+                })
+            messages.error(request, 'El nombre y la categoría son requeridos')
+            return redirect('Categorias')
+        
+        try:
+            # Verificar si la categoría existe
+            categoria = Categoria.objects.get(pk=categoria_id)
+            
+            # Verificar si ya existe una subcategoría con ese nombre en cualquier categoría
+            if SubCategoria.objects.filter(Nombre__iexact=nombre).exists():
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Ya existe una subcategoría con el nombre "{nombre}"'
+                    })
+                messages.error(request, f'Ya existe una subcategoría con el nombre "{nombre}"')
+                return redirect('Categorias')
+            
+            # Crear la subcategoría
+            subcategoria = SubCategoria.objects.create(
+                Nombre=nombre,
+                Categoria=categoria
+            )
+            
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'subcategoria': {
+                        'id': subcategoria.id,
+                        'nombre': subcategoria.Nombre
+                    }
+                })
+            
+            messages.success(request, "Subcategoría agregada exitosamente.")
+            
+        except Categoria.DoesNotExist:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'La categoría seleccionada no existe'
+                })
+            messages.error(request, 'La categoría seleccionada no existe')
+        except Exception as e:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error al guardar la subcategoría: {str(e)}'
+                })
+            messages.error(request, f"Error al guardar la subcategoría: {str(e)}")
+    
     return redirect('Categorias')
 
 def edit_subcategoria_view(request):
@@ -842,6 +892,104 @@ def obtener_subcategorias_view(request):
         return JsonResponse({
             'success': False,
             'message': f'Error al obtener las subcategorías: {str(e)}'
+        })
+
+@require_http_methods(["POST"])
+def agregar_proveedor_view(request):
+    """Vista para agregar un nuevo proveedor"""
+    nombre = request.POST.get('nombre', '').strip()
+    telefono = request.POST.get('telefono', '').strip()
+    direccion = request.POST.get('direccion', '').strip()
+    email = request.POST.get('email', '').strip()
+    
+    if not all([nombre, telefono, direccion, email]):
+        return JsonResponse({
+            'success': False,
+            'message': 'Todos los campos son requeridos'
+        })
+    
+    try:
+        # Verificar si ya existe un proveedor con ese nombre o email
+        if Proveedor.objects.filter(Nombre__iexact=nombre).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe un proveedor con ese nombre'
+            })
+        
+        if Proveedor.objects.filter(Email__iexact=email).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe un proveedor con ese email'
+            })
+        
+        # Crear el proveedor
+        proveedor = Proveedor.objects.create(
+            Nombre=nombre,
+            Telefono=telefono,
+            Direccion=direccion,
+            Email=email
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'proveedor': {
+                'id': proveedor.id,
+                'nombre': proveedor.Nombre,
+                'telefono': proveedor.Telefono,
+                'direccion': proveedor.Direccion,
+                'email': proveedor.Email
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al crear el proveedor: {str(e)}'
+        })
+
+@require_http_methods(["POST"])
+def agregar_unidad_medida_view(request):
+    """Vista para agregar una nueva unidad de medida"""
+    nombre = request.POST.get('nombre', '').strip()
+    abreviatura = request.POST.get('abreviatura', '').strip()
+    
+    if not nombre or not abreviatura:
+        return JsonResponse({
+            'success': False,
+            'message': 'El nombre y la abreviatura son requeridos'
+        })
+    
+    try:
+        # Verificar si ya existe una unidad con ese nombre o abreviatura
+        if UnidadDeMedida.objects.filter(Nombre__iexact=nombre).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe una unidad de medida con ese nombre'
+            })
+        
+        if UnidadDeMedida.objects.filter(Abreviatura__iexact=abreviatura).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe una unidad de medida con esa abreviatura'
+            })
+        
+        # Crear la unidad de medida
+        unidad = UnidadDeMedida.objects.create(
+            Nombre=nombre,
+            Abreviatura=abreviatura
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'unidad': {
+                'id': unidad.id,
+                'nombre': unidad.Nombre,
+                'abreviatura': unidad.Abreviatura
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al crear la unidad de medida: {str(e)}'
         })
 
 

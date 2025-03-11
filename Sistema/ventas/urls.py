@@ -29,4 +29,6 @@ urlpatterns = [
     path('delete_subcategoria/', views.delete_subcategoria_view, name='DeleteSubcategoria'),
     path('agregar_marca/', views.agregar_marca_view, name='agregar_marca'),
     path('obtener_subcategorias/', views.obtener_subcategorias_view, name='obtener_subcategorias'),
+    path('agregar_proveedor/', views.agregar_proveedor_view, name='agregar_proveedor'),
+    path('agregar_unidad_medida/', views.agregar_unidad_medida_view, name='agregar_unidad_medida'),
 ]
