@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block extra_css %}
+<style>
+    /* Estilos para tablas responsivas */
+    @media screen and (max-width: 767px) {
+        .table-responsive-stack tr {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ccc;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        
+        .table-responsive-stack td {
+            border: none;
+            display: block;
+            padding: 0.5rem;
+            position: relative;
+            padding-left: 40%;
+        }
+        
+        .table-responsive-stack td:before {
+            content: attr(data-label);
+            display: inline-block;
+            font-weight: bold;
+            width: 35%;
+            position: absolute;
+            left: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            margin-top: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-group .btn {
+            margin: 0 2px;
+            padding: 0.375rem 0.75rem;
+        }
+    }
+
+    /* Mejoras generales */
+    .form-section {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .form-section-title {
+        color: #17a2b8;
+        font-size: 1.1rem;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #17a2b8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
+<script src="{% static 'index/js/b4.js' %}"></script>
+
+<div id="AgregarProveedorModal" class="modal" style="overflow: scroll;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nuevo proveedor</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form method="POST" action="{% url 'AddProveedor' %}" enctype="multipart/form-data">{% csrf_token %}
+                    {% for field in form_personal %}
+                    <p>{{field.label}} <br>
+                        {{field|add_class:"form-control text-dark"}}</p>
+                    {% for error in field.errors %}
+                    <p class="alarma">{{error}}</p>
+                    {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <p class="alarma">{{error}}</p>
+                    {% endfor %}
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Agregar
+                </button>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="EditarProveedorModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Editar proveedor</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form method="POST" action="{% url 'EditProveedor' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" id="id_proveedor_editar" name="id_proveedor_editar" value="{{ form_editar.instance.id }}">
+
+                    <div class="form-group">
+                        <label for="razon_social_editar">{{ form_editar.RazonSocial.label }}</label>
+                        {{ form_editar.RazonSocial|add_class:"form-control" }}
+                    </div>
+                    <div class="form-group">
+                        <label for="cuit_editar">{{ form_editar.CUIT.label }}</label>
+                        {{ form_editar.CUIT|add_class:"form-control" }}
+                    </div>
+                    <div class="form-group">
+                        <label for="tel_editar">{{ form_editar.Tel.label }}</label>
+                        {{ form_editar.Tel|add_class:"form-control" }}
+                    </div>
+                    <div class="form-group">
+                        <label for="email_editar">{{ form_editar.Email.label }}</label>
+                        {{ form_editar.Email|add_class:"form-control" }}
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion_editar">{{ form_editar.Direccion.label }}</label>
+                        {{ form_editar.Direccion|add_class:"form-control" }}
+                    </div>
+
+                    {% for field in form_editar %}
+                        {% for error in field.errors %}
+                            <div class="alert alert-danger">{{ error }}</div>
+                        {% endfor %}
+                    {% endfor %}
+
+                    {% for error in form_editar.non_field_errors %}
+                        <div class="alert alert-danger">{{ error }}</div>
+                    {% endfor %}
+            </div>
+            <div class="modal-footer bg-dark text-white">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Volver
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Aceptar
+                </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="EliminarProveedorModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Eliminar proveedor</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <p class="labelmodal">¿Está seguro que desea eliminar este proveedor?</p>
+                <form method="POST" action="{% url 'DeleteProveedor' %}">{% csrf_token %}
+                    <input type="hidden" id="id_proveedor_eliminar" name="id_proveedor_eliminar">
+            </div>
+            <div class="modal-footer bg-dark text-white">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    Volver
+                </button>
+                <button type="submit" class="btn btn-success">
+                    Aceptar
+                </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="text-center">Proveedores <i class="fas fa-truck"></i></h3>
+        <div class="col-md-3 pb-2">
+            <a href="#AgregarProveedorModal" data-toggle="modal" data-dismiss="modal">
+                <button type="button" class="btn btn-success">
+                    Agregar Proveedor
+                    <i class="fas fa-plus-circle"></i>
+                </button>
+            </a>
+        </div>
+        <div class="card card-body" style="overflow:scroll">
+            <table class="table table-hover table-primary" id="myTable">
+                <thead>
+                    <tr>
+                        <th>Razón Social</th>
+                        <th>CUIT</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Dirección</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="text-dark">
+                    {% for proveedor in proveedores %}
+                    <tr>
+                        <td>{{proveedor.RazonSocial}}</td>
+                        <td>{{proveedor.CUIT}}</td>
+                        <td>{{proveedor.Tel}}</td>
+                        <td>{{proveedor.Email}}</td>
+                        <td>{{proveedor.Direccion}}</td>
+                        <td>
+                            <button onclick="editarProveedor('{{proveedor.id}}','{{proveedor.RazonSocial}}', '{{proveedor.CUIT}}', '{{proveedor.Tel}}', '{{proveedor.Email}}', '{{proveedor.Direccion}}')" class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProveedorModal">
+                                <img src="{% static 'index/img/editar.png' %}" alt="Error" width="30">
+                            </button>
+                            <button onclick="eliminarProveedor('{{proveedor.id}}')" class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EliminarProveedorModal">
+                                <img src="{% static 'index/img/delete.png' %}" alt="Error" width="30">
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<script>
+    Swal.fire({
+        "title": "{{ message.tags|title }}",
+        "text": "{{ message }}",
+        "icon": "{{ message.tags }}"
+    });
+</script>
+{% endfor %}
+{% endif %}
+
+<script>
+function editarProveedor(id, razonSocial, cuit, tel, email, direccion) {
+    document.getElementById("id_proveedor_editar").value = id;
+    document.getElementById("razon_social_editar").value = razonSocial;
+    document.getElementById("cuit_editar").value = cuit;
+    document.getElementById("tel_editar").value = tel;
+    document.getElementById("email_editar").value = email;
+    document.getElementById("direccion_editar").value = direccion;
+}
+
+function eliminarProveedor(id) {
+    document.getElementById("id_proveedor_eliminar").value = id;
+}
+
+$(document).ready(function() {
+    $('#myTable').DataTable({
+        language: {
+            url: "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        }
+    });
+});
+</script>
+{% endblock %} 

@@ -190,6 +190,51 @@ def delete_producto_view(request):
     messages.success(request, "Producto eliminado exitosamente.")
     return redirect('Productos')
 
+def obtener_producto(request, id):
+    try:
+        producto = Producto.objects.select_related(
+            'inventario', 'Marca', 'SubCategoria', 'SubCategoria__Categoria', 'Proveedor', 'UnidadDeMedida'
+        ).get(pk=id)
+        
+        data = {
+            'success': True,
+            'producto': {
+                'id': producto.id,
+                'Nombre': producto.Nombre,
+                'CodigoDeBarras': producto.CodigoDeBarras,
+                'Descripcion': producto.Descripcion,
+                'Marca': producto.Marca.Nombre if producto.Marca else '',
+                'marca_id': producto.Marca.id if producto.Marca else None,
+                'Proveedor': producto.Proveedor.RazonSocial if producto.Proveedor else '',
+                'proveedor_id': producto.Proveedor.id if producto.Proveedor else None,
+                'categoria_id': producto.SubCategoria.Categoria.id if producto.SubCategoria else None,
+                'subcategoria_id': producto.SubCategoria.id if producto.SubCategoria else None,
+                'PrecioCosto': float(producto.PrecioCosto) if producto.PrecioCosto else 0,
+                'PrecioDeContado': float(producto.PrecioDeContado) if producto.PrecioDeContado else 0,
+                'PrecioDeLista': float(producto.PrecioDeLista) if producto.PrecioDeLista else 0,
+                'UnidadDeMedida': producto.UnidadDeMedida.id if producto.UnidadDeMedida else None,
+            }
+        }
+        
+        if hasattr(producto, 'inventario') and producto.inventario:
+            data['producto']['inventario'] = {
+                'stock_inicial': float(producto.inventario.stock_actual),
+                'stock_minimo': float(producto.inventario.stock_minimo),
+                'stock_maximo': float(producto.inventario.stock_maximo) if producto.inventario.stock_maximo else 0,
+            }
+        
+        return JsonResponse(data)
+    except Producto.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Producto no encontrado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
 def categorias_view(request):
     categorias = Categoria.objects.prefetch_related('subcategoria_set').all()
     form_categoria = AddCategoriaForm()
@@ -991,6 +1036,170 @@ def agregar_unidad_medida_view(request):
             'success': False,
             'message': f'Error al crear la unidad de medida: {str(e)}'
         })
+
+@login_required
+def proveedores_view(request):
+    """Vista principal de proveedores"""
+    proveedores = Proveedor.objects.all()
+    form_personal = AddProveedorForm()
+    form_editar = EditProveedorForm()
+    context = {
+        'proveedores': proveedores,
+        'form_personal': form_personal,
+        'form_editar': form_editar,
+    }
+    return render(request, 'proveedores.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def add_proveedor_view(request):
+    if request.method == "POST":
+        form = AddProveedorForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, "Proveedor agregado exitosamente.")
+            except Exception as e:
+                messages.error(request, f"Error al guardar el proveedor: {str(e)}")
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    return redirect('proveedores')
+
+@login_required
+@require_http_methods(["POST"])
+def edit_proveedor_view(request):
+    id_proveedor_editar = request.POST.get('id_proveedor_editar')
+    if id_proveedor_editar:
+        if request.method == "POST":
+            proveedor = Proveedor.objects.get(pk=id_proveedor_editar)
+            form = EditProveedorForm(request.POST, instance=proveedor)
+            if form.is_valid():
+                try:
+                    form.save()
+                    messages.success(request, "Proveedor modificado exitosamente.")
+                except Exception as e:
+                    messages.error(request, f"Error al modificar el proveedor: {str(e)}")
+            else:
+                messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    return redirect('proveedores')
+
+@login_required
+@require_http_methods(["POST"])
+def delete_proveedor_view(request):
+    try:
+        proveedor = Proveedor.objects.get(pk=request.POST.get('id_proveedor_eliminar'))
+        if Producto.objects.filter(Proveedor=proveedor).exists():
+            messages.error(request, "No se puede eliminar el proveedor porque tiene productos asociados.")
+        else:
+            proveedor.delete()
+            messages.success(request, "Proveedor eliminado exitosamente.")
+    except Exception as e:
+        messages.error(request, f"Error al eliminar el proveedor: {str(e)}")
+    return redirect('proveedores')
+
+@login_required
+def obtener_proveedor(request, id):
+    """Vista para obtener los datos de un proveedor específico"""
+    try:
+        proveedor = Proveedor.objects.get(pk=id)
+        data = {
+            'success': True,
+            'proveedor': {
+                'id': proveedor.id,
+                'RazonSocial': proveedor.RazonSocial,
+                'CUIT': proveedor.CUIT,
+                'Tel': proveedor.Tel,
+                'Email': proveedor.Email,
+                'Direccion': proveedor.Direccion
+            }
+        }
+        return JsonResponse(data)
+    except Proveedor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Proveedor no encontrado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al obtener el proveedor: {str(e)}'
+        }, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def editar_proveedor_view(request):
+    """Vista para editar un proveedor existente"""
+    try:
+        proveedor_id = request.POST.get('id_proveedor')
+        proveedor = Proveedor.objects.get(pk=proveedor_id)
+        
+        proveedor.RazonSocial = request.POST.get('nombre', '').strip()
+        proveedor.CUIT = request.POST.get('cuit', '').strip()
+        proveedor.Tel = request.POST.get('telefono', '').strip()
+        proveedor.Email = request.POST.get('email', '').strip()
+        proveedor.Direccion = request.POST.get('direccion', '').strip()
+        
+        if not all([proveedor.RazonSocial, proveedor.CUIT, proveedor.Tel, proveedor.Email, proveedor.Direccion]):
+            return JsonResponse({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            })
+        
+        # Verificar si existe otro proveedor con el mismo CUIT
+        if Proveedor.objects.exclude(pk=proveedor_id).filter(CUIT=proveedor.CUIT).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe un proveedor con ese CUIT'
+            })
+        
+        proveedor.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Proveedor actualizado correctamente'
+        })
+    except Proveedor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Proveedor no encontrado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al actualizar el proveedor: {str(e)}'
+        }, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def eliminar_proveedor_view(request):
+    """Vista para eliminar un proveedor"""
+    try:
+        proveedor_id = request.POST.get('id_proveedor')
+        proveedor = Proveedor.objects.get(pk=proveedor_id)
+        
+        # Verificar si el proveedor tiene productos asociados
+        if Producto.objects.filter(Proveedor=proveedor).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'No se puede eliminar el proveedor porque tiene productos asociados'
+            })
+        
+        proveedor.delete()
+        return JsonResponse({
+            'success': True,
+            'message': 'Proveedor eliminado correctamente'
+        })
+    except Proveedor.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Proveedor no encontrado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al eliminar el proveedor: {str(e)}'
+        }, status=500)
 
 
 

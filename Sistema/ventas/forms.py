@@ -1,5 +1,5 @@
 from django import forms
-from ventas.models import Cliente, Producto, Categoria, AjusteInventario, SubCategoria
+from ventas.models import Cliente, Producto, Categoria, AjusteInventario, SubCategoria, Proveedor
 from django.utils import timezone
 
 class AddClienteForm(forms.ModelForm):
@@ -30,6 +30,37 @@ class EditClienteForm(forms.ModelForm):
             'Apellido': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'apellido_editar'}),
             'DNI': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'dni_editar'}),
             'Telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'telefono_editar'}),
+            'Email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'email_editar'}),
+            'Direccion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'direccion_editar'}),
+        }
+
+class AddProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['RazonSocial', 'CUIT', 'Tel', 'Email', 'Direccion']
+        labels = {
+            'RazonSocial': 'Razón Social',
+            'CUIT': 'CUIT',
+            'Tel': 'Teléfono',
+            'Email': 'Email',
+            'Direccion': 'Dirección'
+        }
+
+class EditProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['RazonSocial', 'CUIT', 'Tel', 'Email', 'Direccion']
+        labels = {
+            'RazonSocial': 'Razón Social:',
+            'CUIT': 'CUIT:',
+            'Tel': 'Teléfono:',
+            'Email': 'Email:',
+            'Direccion': 'Dirección:',
+        }
+        widgets = {
+            'RazonSocial': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'razon_social_editar'}),
+            'CUIT': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'cuit_editar'}),
+            'Tel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'tel_editar'}),
             'Email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'email_editar'}),
             'Direccion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'direccion_editar'}),
         }
