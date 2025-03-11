@@ -17,7 +17,7 @@ Scripts/
 vSistema/
 *.pyc
 pyvenv.cfg
-
+share/
 # Archivos de configuración generados por Django
 *.log
 *.pot

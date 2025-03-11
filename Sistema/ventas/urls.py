@@ -33,6 +33,7 @@ urlpatterns = [
     path('add_proveedor/', views.add_proveedor_view, name='AddProveedor'),
     path('edit_proveedor/', views.edit_proveedor_view, name='EditProveedor'),
     path('delete_proveedor/', views.delete_proveedor_view, name='DeleteProveedor'),
+    path('obtener_producto/<int:id>/', views.obtener_producto, name='obtener_producto'),
     path('obtener_proveedor/<int:id>/', views.obtener_proveedor, name='obtener_proveedor'),
     path('agregar_unidad_medida/', views.agregar_unidad_medida_view, name='agregar_unidad_medida'),
 ]
