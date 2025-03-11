@@ -17,6 +17,7 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
 
 # Create your views here.
 
@@ -128,10 +129,12 @@ def productos_view(request):
     ).all()
     form_producto = AddProductoForm()
     form_editar = EditProductoForm()
+    categorias = Categoria.objects.all()
     context = {
         'productos': productos,
         'form_producto': form_producto,
         'form_editar': form_editar,
+        'categorias': categorias,
     }
     return render(request, 'productos.html', context)
 
@@ -205,14 +208,84 @@ def categorias_view(request):
 
 def add_categoria_view(request):
     if request.method == "POST":
-        form = AddCategoriaForm(request.POST, request.FILES)
+        nombre_categoria = request.POST.get('Nombre', '').strip()
+        subcategorias = request.POST.getlist('subcategorias[]')
+        
+        # Validar si la categoría ya existe
+        if Categoria.objects.filter(Nombre__iexact=nombre_categoria).exists():
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Ya existe una categoría con el nombre "{nombre_categoria}"'
+                })
+            messages.error(request, f'Ya existe una categoría con el nombre "{nombre_categoria}"')
+            return redirect('Categorias')
+        
+        # Validar subcategorías duplicadas entre sí
+        subcategorias_lower = [s.strip().lower() for s in subcategorias if s.strip()]
+        if len(subcategorias_lower) != len(set(subcategorias_lower)):
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Hay subcategorías duplicadas en la lista'
+                })
+            messages.error(request, 'Hay subcategorías duplicadas en la lista')
+            return redirect('Categorias')
+        
+        form = AddCategoriaForm(request.POST)
         if form.is_valid():
             try:
-                form.save()
-                messages.info(request, "Categoria agregado exitosamente.")
+                with transaction.atomic():
+                    categoria = form.save()
+                    
+                    # Validar y crear subcategorías
+                    subcategorias_creadas = []
+                    for nombre_subcategoria in subcategorias:
+                        if nombre_subcategoria.strip():
+                            # Verificar si ya existe una subcategoría con ese nombre en cualquier categoría
+                            if SubCategoria.objects.filter(Nombre__iexact=nombre_subcategoria.strip()).exists():
+                                # Revertir la transacción
+                                transaction.set_rollback(True)
+                                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                                    return JsonResponse({
+                                        'success': False,
+                                        'message': f'Ya existe una subcategoría con el nombre "{nombre_subcategoria}"'
+                                    })
+                                messages.error(request, f'Ya existe una subcategoría con el nombre "{nombre_subcategoria}"')
+                                return redirect('Categorias')
+                            
+                            subcategoria = SubCategoria.objects.create(
+                                Nombre=nombre_subcategoria.strip(),
+                                Categoria=categoria
+                            )
+                            subcategorias_creadas.append({
+                                'id': subcategoria.id,
+                                'nombre': subcategoria.Nombre
+                            })
+                
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'categoria': {
+                            'id': categoria.id,
+                            'nombre': categoria.Nombre,
+                            'subcategorias': subcategorias_creadas
+                        }
+                    })
+                messages.success(request, "Categoría y subcategorías agregadas exitosamente.")
             except Exception as e:
-                messages.error(request, f"Error al guardar el categoria: {str(e)}")
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al guardar: {str(e)}'
+                    })
+                messages.error(request, f"Error al guardar: {str(e)}")
         else:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': "Error en el formulario. Verifique los datos ingresados."
+                })
             messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
     return redirect('Categorias')
 
@@ -629,6 +702,147 @@ def detalle_caja_view(request, caja_id):
         )
     }
     return render(request, 'caja/detalle_caja.html', context)
+
+@require_http_methods(["GET"])
+def listar_marcas_view(request):
+    """Vista para listar todas las marcas con conteo de productos"""
+    marcas = Marca.objects.annotate(productos_count=Count('producto')).values('id', 'Nombre', 'productos_count')
+    return JsonResponse({'marcas': list(marcas)})
+
+@require_http_methods(["POST"])
+def agregar_marca_view(request):
+    """Vista para agregar una nueva marca"""
+    nombre = request.POST.get('nombre')
+    
+    if not nombre:
+        return JsonResponse({
+            'success': False,
+            'message': 'El nombre de la marca es requerido'
+        })
+    
+    try:
+        # Verificar si ya existe una marca con ese nombre
+        if Marca.objects.filter(Nombre__iexact=nombre).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe una marca con ese nombre'
+            })
+        
+        marca = Marca.objects.create(Nombre=nombre)
+        return JsonResponse({
+            'success': True,
+            'marca': {
+                'id': marca.id,
+                'nombre': marca.Nombre
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al crear la marca: {str(e)}'
+        })
+
+@require_http_methods(["POST"])
+def editar_marca_view(request, marca_id):
+    """Vista para editar una marca existente"""
+    try:
+        marca = Marca.objects.get(pk=marca_id)
+    except Marca.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'La marca no existe'
+        })
+    
+    nombre = request.POST.get('nombre')
+    descripcion = request.POST.get('descripcion', '')
+    
+    if not nombre:
+        return JsonResponse({
+            'success': False,
+            'message': 'El nombre de la marca es requerido'
+        })
+    
+    try:
+        # Verificar si ya existe otra marca con ese nombre
+        if Marca.objects.filter(Nombre__iexact=nombre).exclude(pk=marca_id).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Ya existe otra marca con ese nombre'
+            })
+        
+        marca.Nombre = nombre
+        marca.save()
+        return JsonResponse({
+            'success': True,
+            'marca': {
+                'id': marca.id,
+                'nombre': marca.Nombre
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al actualizar la marca: {str(e)}'
+        })
+
+@require_http_methods(["POST"])
+def eliminar_marca_view(request, marca_id):
+    """Vista para eliminar una marca"""
+    try:
+        marca = Marca.objects.get(pk=marca_id)
+    except Marca.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'La marca no existe'
+        })
+    
+    try:
+        # Verificar si la marca tiene productos asociados
+        if marca.producto_set.exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'No se puede eliminar la marca porque tiene productos asociados'
+            })
+        
+        marca.delete()
+        return JsonResponse({
+            'success': True,
+            'message': 'Marca eliminada correctamente'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al eliminar la marca: {str(e)}'
+        })
+
+@require_http_methods(["GET"])
+def obtener_subcategorias_view(request):
+    """Vista para obtener las subcategorías de una categoría específica"""
+    categoria_id = request.GET.get('categoria_id')
+    
+    if not categoria_id:
+        return JsonResponse({
+            'success': False,
+            'message': 'El ID de la categoría es requerido'
+        })
+    
+    try:
+        subcategorias = SubCategoria.objects.filter(
+            Categoria_id=categoria_id
+        ).values('id', 'Nombre')
+        
+        return JsonResponse({
+            'success': True,
+            'subcategorias': [
+                {'id': sub['id'], 'nombre': sub['Nombre']}
+                for sub in subcategorias
+            ]
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al obtener las subcategorías: {str(e)}'
+        })
 
 
 

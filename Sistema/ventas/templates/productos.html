@@ -70,6 +70,11 @@
     .table-hover tbody tr:hover {
         background-color: rgba(0,0,0,0.075);
     }
+
+    /* Estilos para el input de marca */
+    .marca-input::-webkit-calendar-picker-indicator {
+        display: none !important;
+    }
 </style>
 {% endblock %}
 
@@ -85,16 +90,68 @@
                 <h5 class="modal-title text-dark">Agregar nuevo producto</h5>
             </div>
             <div class="modal-body bg-dark text-white">
-                <form method="POST" action="{% url 'AddProducto' %}" enctype="multipart/form-data">{% csrf_token %}
+                <form method="POST" action="{% url 'AddProducto' %}" enctype="multipart/form-data" id="formProducto">
+                    {% csrf_token %}
                     {% for field in form_producto %}
-                    <p>{{ field.label }} <br>
-                        {{ field|add_class:"form-control text-dark" }}</p>
-                    {% for error in field.errors %}
-                    <p class="alarma">{{ error }}</p>
-                    {% endfor %}
+                        <div class="form-group">
+                            <label>{{ field.label }}</label>
+                            {% if field.name == 'Marca' %}
+                                <div class="input-group">
+                                    <input type="text" 
+                                           name="Marca" 
+                                           id="id_Marca"
+                                           list="marcas-list"
+                                           class="form-control text-dark"
+                                           placeholder="Buscar o crear marca..."
+                                           autocomplete="off"
+                                           required>
+                                    <datalist id="marcas-list">
+                                        {% for marca in field.field.queryset %}
+                                            <option value="{{ marca.Nombre }}" data-id="{{ marca.id }}">
+                                        {% endfor %}
+                                    </datalist>
+                                    <input type="hidden" name="Marca_id" id="id_Marca_id">
+                                    <div class="input-group-append">
+                                        <button type="button" 
+                                                class="btn btn-primary" 
+                                                data-toggle="modal" 
+                                                data-target="#AgregarMarcaModal">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% elif field.name == 'SubCategoria' %}
+                                <div class="categoria-group">
+                                    <div class="input-group mb-2">
+                                        <select name="Categoria" id="id_Categoria" class="form-control text-dark" required>
+                                            <option value="">Seleccione una categoría</option>
+                                            {% for categoria in categorias %}
+                                                <option value="{{ categoria.id }}">{{ categoria.Nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarCategoriaModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <select name="SubCategoria" id="id_SubCategoria" class="form-control text-dark" required disabled>
+                                        <option value="">Primero seleccione una categoría</option>
+                                    </select>
+                                </div>
+                            {% else %}
+                                {{ field|add_class:"form-control text-dark" }}
+                            {% endif %}
+                            {% for error in field.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
                     {% endfor %}
                     {% for error in form.non_field_errors %}
-                    <p class="alarma">{{ error }}</p>
+                        <div class="alert alert-danger">{{ error }}</div>
                     {% endfor %}
             </div>
             <div class="modal-footer bg-dark">
@@ -322,6 +379,77 @@
     </div>
 </div>
 
+<!-- Modal para Agregar Marca -->
+<div class="modal fade" id="AgregarMarcaModal" tabindex="-1" role="dialog" aria-labelledby="agregarMarcaLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarMarcaLabel">Nueva Marca</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'agregar_marca' %}" id="formNuevaMarca">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <div class="form-group">
+                        <label for="nombre_marca">Nombre de la Marca</label>
+                        <input type="text" class="form-control" id="nombre_marca" name="nombre" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Marca</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Categoría -->
+<div class="modal fade" id="AgregarCategoriaModal" tabindex="-1" role="dialog" aria-labelledby="agregarCategoriaLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarCategoriaLabel">Nueva Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'AddCategoria' %}" id="formNuevaCategoria">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <div class="form-group">
+                        <label for="nombre_categoria">Nombre de la Categoría</label>
+                        <input type="text" class="form-control" id="nombre_categoria" name="Nombre" required>
+                    </div>
+                    
+                    <div class="subcategorias-container">
+                        <h6 class="mt-4 mb-3">Subcategorías</h6>
+                        <div id="subcategorias-list">
+                            <div class="subcategoria-item input-group mb-2">
+                                <input type="text" class="form-control" name="subcategorias[]" placeholder="Nombre de la subcategoría" required>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-danger remove-subcategoria">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-info btn-sm mt-2" id="agregar-subcategoria">
+                            <i class="fas fa-plus"></i> Agregar Subcategoría
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% if messages %}
 {% for message in messages %}
 <script>
@@ -377,44 +505,300 @@ $(document).ready(function() {
             });
         }
     });
-});
 
-function ajustarInventario(id, nombre) {
-    document.getElementById('producto_id_ajuste').value = id;
-    document.getElementById('producto_nombre_ajuste').textContent = 'Producto: ' + nombre;
-    document.getElementById('formAjusteInventario').action = "{% url 'ajuste_inventario' 0 %}".replace('0', id);
-    
-    // Limpiar el formulario
-    document.getElementById('tipo_ajuste').value = '';
-    document.getElementById('cantidad').value = '';
-    document.getElementById('justificacion').value = '';
-}
+    // Manejar la selección de marca
+    $('#id_Marca').on('input', function() {
+        const input = $(this);
+        const datalist = $('#marcas-list')[0];
+        const hiddenInput = $('#id_Marca_id');
+        
+        // Buscar la opción que coincide con el valor ingresado
+        const option = Array.from(datalist.options).find(opt => opt.value === input.val());
+        
+        if (option) {
+            hiddenInput.val(option.dataset.id);
+        } else {
+            hiddenInput.val('');
+        }
+    });
 
-// Validación del formulario de ajuste
-document.getElementById('formAjusteInventario').addEventListener('submit', function(e) {
-    const tipo = document.getElementById('tipo_ajuste').value;
-    const cantidad = document.getElementById('cantidad').value;
-    const justificacion = document.getElementById('justificacion').value;
-
-    if (!tipo || !cantidad || !justificacion) {
+    // Manejar el formulario de nueva marca
+    $('#formNuevaMarca').on('submit', function(e) {
         e.preventDefault();
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Todos los campos son obligatorios'
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.success) {
+                    // Agregar la nueva marca al datalist
+                    $('#marcas-list').append(
+                        `<option value="${response.marca.nombre}" data-id="${response.marca.id}">`
+                    );
+                    
+                    // Establecer el valor en el input
+                    $('#id_Marca').val(response.marca.nombre);
+                    $('#id_Marca_id').val(response.marca.id);
+                    
+                    // Cerrar el modal
+                    $('#AgregarMarcaModal').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Marca agregada correctamente'
+                    });
+                    
+                    // Limpiar el formulario
+                    $('#formNuevaMarca')[0].reset();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al agregar la marca'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al procesar la solicitud'
+                });
+            }
         });
-        return false;
-    }
+    });
 
-    if (cantidad <= 0) {
+    // Manejar el formulario de nueva categoría
+    $('#formNuevaCategoria').on('submit', function(e) {
         e.preventDefault();
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'La cantidad debe ser mayor a 0'
+        
+        // Validar nombre de categoría
+        const nombreCategoria = $('#nombre_categoria').val().trim();
+        if (!nombreCategoria) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'El nombre de la categoría es requerido'
+            });
+            return;
+        }
+        
+        // Obtener todas las subcategorías y validar
+        const subcategorias = [];
+        const subcategoriasSet = new Set();
+        let hayDuplicados = false;
+        let subcategoriaVacia = false;
+        
+        $('input[name="subcategorias[]"]').each(function() {
+            const valor = $(this).val().trim().toLowerCase();
+            if (!valor) {
+                subcategoriaVacia = true;
+                return false; // break the loop
+            }
+            if (subcategoriasSet.has(valor)) {
+                hayDuplicados = true;
+                return false; // break the loop
+            }
+            subcategoriasSet.add(valor);
+            subcategorias.push($(this).val().trim());
         });
-        return false;
-    }
+        
+        if (subcategoriaVacia) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Todas las subcategorías deben tener un nombre'
+            });
+            return;
+        }
+        
+        if (hayDuplicados) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No puede haber subcategorías duplicadas'
+            });
+            return;
+        }
+        
+        const formData = new FormData(this);
+        
+        // Limpiar y agregar las subcategorías validadas
+        formData.delete('subcategorias[]');
+        subcategorias.forEach(subcategoria => {
+            formData.append('subcategorias[]', subcategoria);
+        });
+
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Guardando...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    // Agregar la nueva categoría al select
+                    $('#id_Categoria').append(
+                        `<option value="${response.categoria.id}">${response.categoria.nombre}</option>`
+                    );
+                    
+                    // Seleccionar la nueva categoría
+                    $('#id_Categoria').val(response.categoria.id);
+                    
+                    // Actualizar las subcategorías
+                    const subcategoriaSelect = $('#id_SubCategoria');
+                    subcategoriaSelect.empty();
+                    subcategoriaSelect.append('<option value="">Seleccione una subcategoría</option>');
+                    
+                    // Agregar las nuevas subcategorías
+                    response.categoria.subcategorias.forEach(function(subcategoria) {
+                        subcategoriaSelect.append(
+                            `<option value="${subcategoria.id}">${subcategoria.nombre}</option>`
+                        );
+                    });
+                    
+                    // Habilitar el select de subcategorías
+                    subcategoriaSelect.prop('disabled', false);
+                    
+                    // Cerrar el modal
+                    $('#AgregarCategoriaModal').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Categoría y subcategorías agregadas correctamente'
+                    });
+                    
+                    // Limpiar el formulario
+                    $('#formNuevaCategoria')[0].reset();
+                    // Dejar solo una subcategoría
+                    $('#subcategorias-list').html(`
+                        <div class="subcategoria-item input-group mb-2">
+                            <input type="text" class="form-control" name="subcategorias[]" placeholder="Nombre de la subcategoría" required>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-danger remove-subcategoria">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al agregar la categoría'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al procesar la solicitud'
+                });
+            }
+        });
+    });
+
+    // Agregar nueva subcategoría
+    $('#agregar-subcategoria').on('click', function() {
+        $('#subcategorias-list').append(`
+            <div class="subcategoria-item input-group mb-2">
+                <input type="text" class="form-control" name="subcategorias[]" placeholder="Nombre de la subcategoría" required>
+                <div class="input-group-append">
+                    <button type="button" class="btn btn-danger remove-subcategoria">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+    });
+
+    // Eliminar subcategoría
+    $(document).on('click', '.remove-subcategoria', function() {
+        const subcategoriasCount = $('.subcategoria-item').length;
+        if (subcategoriasCount > 1) {
+            $(this).closest('.subcategoria-item').remove();
+        } else {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                text: 'Debe haber al menos una subcategoría'
+            });
+        }
+    });
+
+    // Validar que se haya seleccionado una marca válida antes de enviar el formulario
+    $('#formProducto').on('submit', function(e) {
+        const marcaId = $('#id_Marca_id').val();
+        const marcaNombre = $('#id_Marca').val();
+        
+        if (!marcaId && marcaNombre) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor seleccione una marca válida o cree una nueva'
+            });
+        }
+    });
+
+    // Manejar el cambio de categoría
+    $('#id_Categoria').on('change', function() {
+        const categoriaId = $(this).val();
+        const subcategoriaSelect = $('#id_SubCategoria');
+        
+        if (categoriaId) {
+            // Habilitar el select de subcategorías
+            subcategoriaSelect.prop('disabled', false);
+            
+            // Realizar la petición AJAX para obtener las subcategorías
+            $.ajax({
+                url: "{% url 'obtener_subcategorias' %}",
+                type: 'GET',
+                data: { categoria_id: categoriaId },
+                success: function(response) {
+                    // Limpiar y actualizar el select de subcategorías
+                    subcategoriaSelect.empty();
+                    subcategoriaSelect.append('<option value="">Seleccione una subcategoría</option>');
+                    
+                    response.subcategorias.forEach(function(subcategoria) {
+                        subcategoriaSelect.append(
+                            `<option value="${subcategoria.id}">${subcategoria.nombre}</option>`
+                        );
+                    });
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al cargar las subcategorías'
+                    });
+                }
+            });
+        } else {
+            // Si no hay categoría seleccionada, deshabilitar y limpiar subcategorías
+            subcategoriaSelect.prop('disabled', true);
+            subcategoriaSelect.empty();
+            subcategoriaSelect.append('<option value="">Primero seleccione una categoría</option>');
+        }
+    });
 });
 </script>
 {% endblock %}
