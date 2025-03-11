@@ -16,6 +16,7 @@ Scripts/
 # Entornos virtuales
 vSistema/
 *.pyc
+pyvenv.cfg
 
 # Archivos de configuración generados por Django
 *.log
