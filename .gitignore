@@ -42,3 +42,6 @@ media/
 __init__.py
 aplicacion/migrations/*.py
 !aplicacion/migrations/__init__.py
+/Sistema/ventas/migrations/0002_inventario_producto_activo_producto_imagen_and_more.py
+/Sistema/ventas/migrations/0003_remove_producto_cantidad_and_more.py
+/Sistema/ventas/migrations/0004_cajadiaria_movimientocaja.py
