@@ -1,5 +1,5 @@
 from django import forms
-from ventas.models import Cliente, Producto, Categoria, Venta, MedioDePago
+from .models import Proveedor, Cliente, Producto, Categoria, Venta  # Asegúrate de importar todos los modelos necesarios
 
 class AddClienteForm(forms.ModelForm):
     class Meta:
@@ -9,20 +9,22 @@ class AddClienteForm(forms.ModelForm):
             'Nombre': 'Nombre',
             'Apellido': 'Apellido',
             'DNI': 'DNI',
-            'Direccion': 'Direccion'
+            'Telefono': 'Teléfono',
+            'Email': 'Email',
+            'Direccion': 'Dirección',
         }
 
 class EditClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields =  ['Nombre', 'Apellido', 'DNI', 'Telefono', 'Email', 'Direccion']
+        fields = ['Nombre', 'Apellido', 'DNI', 'Telefono', 'Email', 'Direccion']
         labels = {
             'Nombre': 'Nombre:',
             'Apellido': 'Apellido:',
             'DNI': 'DNI:',
             'Telefono': 'Teléfono:',
             'Email': 'Email:',
-            'Direccion': 'Direccion:',
+            'Direccion': 'Dirección:',
         }
         widgets = {
             'Nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'nombre_editar'}),
@@ -31,6 +33,30 @@ class EditClienteForm(forms.ModelForm):
             'Telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'telefono_editar'}),
             'Email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'email_editar'}),
             'Direccion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '', 'id': 'direccion_editar'}),
+        }
+
+class AddProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['RazonSocial', 'CUIT', 'Tel', 'Email', 'Direccion']
+        labels = {
+            'RazonSocial': 'Razón Social',
+            'CUIT': 'CUIT',
+            'Tel': 'Teléfono',
+            'Email': 'Email',
+            'Direccion': 'Dirección',
+        }
+
+class EditProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ['RazonSocial', 'CUIT', 'Tel', 'Email', 'Direccion']
+        labels = {
+            'RazonSocial': 'Razón Social:',
+            'CUIT': 'CUIT:',
+            'Tel': 'Teléfono:',
+            'Email': 'Email:',
+            'Direccion': 'Dirección:',
         }
 
 class AddProductoForm(forms.ModelForm):
@@ -62,9 +88,9 @@ class EditProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = [
-            'Nombre', 'SubCategoria', 'Marca', 'Proveedor', 'CodigoDeBarras', 
-            'Descripcion', 'Cantidad', 'CantidadMinimaSugerida', 
-            'UnidadDeMedida', 'PrecioCosto', 'PrecioDeLista', 
+            'Nombre', 'SubCategoria', 'Marca', 'Proveedor', 'CodigoDeBarras',
+            'Descripcion', 'Cantidad', 'CantidadMinimaSugerida',
+            'UnidadDeMedida', 'PrecioCosto', 'PrecioDeLista',
             'PrecioDeContado', 'FechaUltimaModificacion'
         ]
         labels = {
@@ -98,7 +124,6 @@ class EditProductoForm(forms.ModelForm):
             'FechaUltimaModificacion': forms.DateInput(attrs={'type': 'date'}),
         }
 
-
 class AddCategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
@@ -110,7 +135,7 @@ class AddCategoriaForm(forms.ModelForm):
 class EditCategoriaForm(forms.ModelForm):
     class Meta:
         model = Categoria
-        fields =  ['Nombre']
+        fields = ['Nombre']
         labels = {
             'Nombre': 'Nombre:',
         }
@@ -128,3 +153,4 @@ class VentaForm(forms.ModelForm):
             'NumeroComprobate': 'Número de Comprobante',
             'ImporteTotal': 'Importe Total',
         }
+

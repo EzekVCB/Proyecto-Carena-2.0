@@ -343,6 +343,54 @@ def export_pdf_view(request, id, iva):
 
     return response
 
+def proveedores_view(request):
+    proveedores = Proveedor.objects.all()
+    form_personal = AddProveedorForm()
+    form_editar = EditProveedorForm()
+    context = {
+        'proveedores': proveedores,
+        'form_personal': form_personal,
+        'form_editar': form_editar,
+    }
+    return render(request, 'proveedores.html', context)
+
+def add_proveedor_view(request):
+    if request.method == "POST":
+        form = AddProveedorForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.info(request, "Proveedor agregado exitosamente.")
+            except Exception as e:
+                messages.error(request, f"Error al guardar el proveedor: {str(e)}")
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    return redirect('Proveedores')
+
+def edit_proveedor_view(request):
+    id_proveedor_editar = request.POST.get('id_proveedor_editar')
+    if id_proveedor_editar:
+        if request.method == "POST":
+            proveedor = Proveedor.objects.get(pk=id_proveedor_editar)
+            form = EditProveedorForm(request.POST, instance=proveedor)
+            if form.is_valid():
+                try:
+                    form.save()
+                    messages.success(request, "Proveedor modificado exitosamente.")
+                except Exception as e:
+                    messages.error(request, f"Error al modificar el proveedor: {str(e)}")
+            else:
+                messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    return redirect('Proveedores')
+
+def delete_proveedor_view(request):
+    proveedor = Proveedor.objects.get(pk=request.POST.get('id_proveedor_eliminar'))
+    proveedor.delete()
+    messages.success(request, "Proveedor eliminado exitosamente.")
+    return redirect('Proveedores')
+
 
 
 

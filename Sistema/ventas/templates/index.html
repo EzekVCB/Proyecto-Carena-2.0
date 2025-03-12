@@ -1,27 +1,6 @@
 {% extends "base.html" %}
 {% comment %}
-<!-- {% extends "base.html" %} -->
-<!-- {% load static %} -->
-<!-- -->
-<!-- {% block content %} -->
-<!-- <style> -->
-<!--     body { -->
-<!--         margin: 0; -->
-<!--         padding: 0; -->
-<!--         display: flex; -->
-<!--         flex-direction: column; -->
-<!--         min-height: 100vh; -->
-<!--         background-image: url('{% static "img/logoSinFondo.png" %}'); -->
-<!--         background-repeat: no-repeat; -->
-<!--         background-position: center; -->
-<!--         background-size: contain; -->
-<!--         /* Cambiado a 'contain' para mantener la proporción del logo */ -->
-<!--         background-color: #2047e2; -->
-<!--         /* Fondo por defecto para espacios vacíos */ -->
-<!--     } -->
-<!-- </style> -->
-<!-- <h1>Hola Mundo</h1> -->
-<!-- {% endblock %} -->
+
 {% endcomment %}
 
 
@@ -39,11 +18,11 @@
                             <h5 class="mb-0">Ventas del día</h5>
                             <h3 class="mb-0">${{ ventas_dia|default:"0.00" }}</h3>
                         </div>
-                        <i class="fas fa-cash-register fa-2x"></i>
+                        <i class="fas fa-shopping-cart fa-2x"></i>
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="{% url 'caja' %}">Ver caja</a>
+                    <a class="small text-white stretched-link" href="{% url 'AddVenta' %}">Ver detalles</a>
                     <i class="fas fa-angle-right"></i>
                 </div>
             </div>
@@ -114,27 +93,27 @@
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-md-3 col-6 mb-3">
-                            <a href="{% url 'caja' %}" class="btn btn-lg btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                            <a href="" class="btn btn-lg btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
                                 <i class="fas fa-cash-register fa-3x mb-2"></i>
-                                <span>Control de Caja</span>
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <a href="{% url 'AddVenta' %}" class="btn btn-lg btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                                <i class="fas fa-shopping-cart fa-3x mb-2"></i>
                                 <span>Nueva Venta</span>
                             </a>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
-                            <a href="{% url 'AddProducto' %}" class="btn btn-lg btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                            <a href="{% url 'AddProducto' %}" class="btn btn-lg btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
                                 <i class="fas fa-box-open fa-3x mb-2"></i>
                                 <span>Agregar Producto</span>
                             </a>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
-                            <a href="{% url 'historial_cajas' %}" class="btn btn-lg btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                                <i class="fas fa-history fa-3x mb-2"></i>
-                                <span>Historial de Cajas</span>
+                            <a href="{% url 'AddCliente' %}" class="btn btn-lg btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                                <i class="fas fa-user-plus fa-3x mb-2"></i>
+                                <span>Nuevo Cliente</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <a href="" class="btn btn-lg btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                                <i class="fas fa-chart-bar fa-3x mb-2"></i>
+                                <span>Reportes</span>
                             </a>
                         </div>
                     </div>
@@ -209,11 +188,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for inventario in productos_stock_bajo %}
+                                {% for producto in productos_stock_bajo %}
                                 <tr>
-                                    <td>{{ inventario.producto.Nombre }}</td>
-                                    <td>{{ inventario.stock_actual }}</td>
-                                    <td>{{ inventario.stock_minimo }}</td>
+                                    <td>{{ producto.Nombre }}</td>
+                                    <td>{{ producto.Cantidad }}</td>
+                                    <td>10</td>  <!-- Valor fijo hasta que agregues el campo -->
                                 </tr>
                                 {% empty %}
                                 <tr>
