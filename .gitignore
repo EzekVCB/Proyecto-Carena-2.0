@@ -46,6 +46,6 @@ media/
 
 # Ignorar archivos de migración excepto __init__.py
 
-aplicacion/migrations/*.py
-!aplicacion/migrations/__init__.py
+Sistema/ventas/migrations/*.py
+!Sistema/ventas/migrations/__init__.py
 
