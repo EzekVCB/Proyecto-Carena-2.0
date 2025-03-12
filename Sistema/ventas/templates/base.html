@@ -56,6 +56,21 @@
             <i class="fas fa-expand-arrows-alt"></i>
           </a>
         </li>
+        {% if user.is_authenticated %}
+        <li class="nav-item">
+          <span class="nav-link">Hola, {{ user.username }}</span>
+        </li>
+        <li class="nav-item">
+          <form id="logout-form" method="post" action="{% url 'Logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="nav-link btn btn-link">Cerrar sesión</button>
+          </form>
+        </li>
+        {% else %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'Login' %}">Iniciar sesión</a>
+        </li>
+        {% endif %}
       </ul>
     </nav>
     <!-- /.navbar -->

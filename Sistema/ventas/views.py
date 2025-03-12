@@ -13,6 +13,7 @@ import os
 from django.db.models import Sum
 from django.utils import timezone
 from datetime import datetime, time
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 
 # Create your views here.
 
@@ -326,10 +327,24 @@ def add_venta_view(request):
             messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
     else:
         form = VentaForm()
-    return render(request, 'ventas.html', {'form': form, 'productos': productos})
+    return render(request, 'add_ventas.html', {'form': form, 'productos': productos})
 
 
+def login_view(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            auth_login(request, user)
+            return redirect('Index')  # Redirige a la página principal
+        else:
+            messages.error(request, "Credenciales incorrectas.")
+    return render(request, "login.html")
 
+def logout_view(request):
+    auth_logout(request)
+    return redirect('Login')  # Redirige a la página de login
 
 
 
