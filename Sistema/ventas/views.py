@@ -17,11 +17,6 @@ from django.contrib.auth import authenticate, login as auth_login, logout as aut
 
 # Create your views here.
 
-# def index_view(request):
-#     context = {
-#     }
-#     return render(request, 'index.html', context)
-
 def obtener_ventas_del_dia():
     """
     Calcula el total de ventas del día actual.
@@ -58,7 +53,7 @@ def obtener_productos_stock_bajo():
     productos = Producto.objects.filter(
         Cantidad__lte=10  # Mismo criterio que arriba
     ).order_by('Cantidad')[:5]  # Ordenamos por cantidad ascendente
-    
+
     return productos
 
 def index_view(request):
@@ -268,47 +263,6 @@ def delete_categoria_view(request):
     return redirect('Categorias')
 
 #Ventas
-def ventas_view(request):
-    """
-    Vista para mostrar la lista de ventas
-    """
-    ventas = Venta.objects.all().order_by('-Fecha')
-    context = {
-        'ventas': ventas,
-    }
-    return render(request, 'ventas.html', context)
-
-def reportes_view(request):
-    """
-    Vista para la página de reportes
-    """
-    return render(request, 'reportes.html')
-class add_ventas(ListView):
-    template_name = 'add_ventas.html'
-
-
-
-def agregar_venta_view(request):
-    productos = Producto.objects.all()  # Obtener todos los productos
-    if request.method == "POST":
-        form = VentaForm(request.POST)
-        if form.is_valid():
-            venta = form.save(commit=False)  # No guardar aún
-            venta.save()  # Guardar la venta
-            # Aquí puedes agregar lógica para guardar los detalles de la venta
-            for producto_id in request.POST.getlist('productos'):
-                producto = Producto.objects.get(id=producto_id)
-                detalle = DetalleVenta(Venta=venta, Producto=producto, Cantidad=request.POST.get(f'cantidad_{producto_id}'))
-                detalle.save()
-            messages.success(request, "Venta agregada exitosamente.")
-            return redirect('Ventas')  # Redirigir a la lista de ventas
-        else:
-            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
-    else:
-        form = VentaForm()
-    return render(request, 'agregar_venta.html', {'form': form, 'productos': productos})
-
-
 def add_venta_view(request):
     productos = Producto.objects.all()  # Obtener todos los productos
     if request.method == "POST":
