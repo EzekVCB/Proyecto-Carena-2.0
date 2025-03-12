@@ -245,29 +245,6 @@ class CompraAdmin(admin.ModelAdmin):
         DetalleCompraInline,
     ]
 
-class DetalleCuentaInline(admin.TabularInline):
-    model = DetalleCuenta
-class CuentaAdmin(admin.ModelAdmin):
-    list_display = ('Cliente', 'FechaDeAlta', 'FechaDeUltimaModificacion', 'ImporteTotal')
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path('populate/', self.admin_site.admin_view(self.populate_cuentas), name='cuenta_populate')
-        ]
-        return custom_urls + urls
-
-    def populate_cuentas(self, request):
-        generar_cuentas(5)
-        messages.success(request, "Datos ficticios de cuentas generados correctamente.")
-        return redirect('..')
-
-    def changelist_view(self, request, extra_context=None):
-        extra_context = extra_context or {}
-        extra_context['tipo'] = 'cuenta'
-        return super(CuentaAdmin, self).changelist_view(request, extra_context=extra_context)
-    inlines = [
-        DetalleCuentaInline,
-    ]
 
 admin.site.register(Cliente, ClienteAdmin)
 admin.site.register(Proveedor, ProveedorAdmin)
@@ -280,6 +257,5 @@ admin.site.register(MedioDePago, MedioDePagoAdmin)
 admin.site.register(Venta, VentaAdmin)
 admin.site.register(Presupuesto, PresupuestoAdmin)
 admin.site.register(Compra, CompraAdmin)
-admin.site.register(Cuenta, CuentaAdmin)
 
 

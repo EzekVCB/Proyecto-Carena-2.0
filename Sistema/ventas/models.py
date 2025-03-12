@@ -6,18 +6,18 @@ class Cliente(models.Model):
     Nombre = models.CharField(max_length=50, help_text="Nombre del cliente.")
     Apellido = models.CharField(max_length=50)
     DNI = models.CharField(max_length=10)
-    Telefono = models.CharField(max_length=20, null=True)
-    Email = models.EmailField(default=" ", null=True)
-    Direccion = models.CharField(max_length=50, null=True)
+    Telefono = models.CharField(max_length=20, null=False, blank=False)
+    Email = models.EmailField(default=" ", null=True, blank=True)
+    Direccion = models.CharField(max_length=50, null=True, blank=True)
     def __str__(self):
         return self.Nombre
 
 class Proveedor(models.Model):
     RazonSocial = models.CharField(max_length=50, help_text="Nombre del proveedor.")
     CUIT = models.CharField(max_length=25)
-    Tel = models.CharField(max_length=20)
-    Email = models.EmailField(default=" ", null=True)
-    Direccion = models.CharField(max_length=50, null=True)
+    Tel = models.CharField(max_length=20, null=False, blank=False)
+    Email = models.EmailField(default=" ", null=True, blank=True)
+    Direccion = models.CharField(max_length=50, null=True, blank=True)
     def __str__(self):
         return self.RazonSocial
 
@@ -44,11 +44,12 @@ class UnidadDeMedida(models.Model):
 
 class Producto(models.Model):
     Nombre = models.CharField(max_length=50)
+    Codigo = models.CharField(max_length=10, null=False, blank=False, default='DEFAULT_VALUE')
     SubCategoria = models.ForeignKey(SubCategoria, on_delete=models.CASCADE, default=None, null=True)
     Marca = models.ForeignKey(Marca, on_delete=models.CASCADE, default=None, null=True)
     Proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, default=None, null=True)
-    CodigoDeBarras = models.CharField(max_length=50, null=True)
-    Descripcion = models.CharField(max_length=200, null=True)
+    CodigoDeBarras = models.CharField(max_length=50, null=True, blank=True)
+    Descripcion = models.CharField(max_length=200, null=True, blank=True)
     Cantidad = models.DecimalField(default=None, null=False, max_digits=10, decimal_places=2)
     CantidadMinimaSugerida = models.DecimalField(default=None, null=False, max_digits=10, decimal_places=2)
     UnidadDeMedida = models.ForeignKey(UnidadDeMedida, on_delete=models.CASCADE, default=None, null=True)
@@ -85,7 +86,7 @@ class DetalleVenta(models.Model):
         return f"{venta_str} - {producto_str} - {cantidad_str}"
 
 class Presupuesto(models.Model):
-    Fecha = models.DateField(null=False)
+    Fecha = models.DateField(auto_now_add=True)
     Cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, default=None, null=True)
     MedioDePago = models.ForeignKey(MedioDePago, on_delete=models.CASCADE, default=None, null=True)
     detalleVentas = models.ManyToManyField(Producto, through="DetallePresupuesto")
@@ -114,21 +115,4 @@ class DetalleCompra(models.Model):
     Cantidad = models.IntegerField(default=None, null=True)
     def __str__(self):
         return f"{self.Compra} - {self.Producto} - {self.Cantidad}"
-
-class Cuenta(models.Model):
-    Cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, default=None, null=True)
-    FechaDeAlta = models.DateField(null=False)
-    FechaDeUltimaModificacion = models.DateField(null=False)
-    detalleCuenta = models.ManyToManyField(Producto, through="DetalleCuenta")
-    ImporteTotal = models.DecimalField(null=False, max_digits=10, decimal_places=2)
-    def __str__(self):
-        return f"Cuenta de {self.Cliente} - Total: {self.ImporteTotal}"
-
-class DetalleCuenta(models.Model):
-    Cuenta = models.ForeignKey(Cuenta, on_delete=models.CASCADE, default=None, null=True)
-    Producto = models.ForeignKey(Producto, on_delete=models.CASCADE, default=None, null=True)
-    Cantidad = models.IntegerField(default=None, null=True)
-    def __str__(self):
-        return f"{self.Cuenta} - {self.Producto} - {self.Cantidad}"
-
 
