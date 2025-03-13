@@ -3,9 +3,10 @@
 .vscode/
 
 
-# Ignora la carpeta lib y Scripts del entorno virtual que al instalar los
-# requerimientos se instalará en ese equipo.
-lib/
+# Ignora la carpeta Lib del entorno virtual
+Lib/
+
+# Ignora la carpeta Scripts del entorno virtual
 Scripts/
 
 **/Scripts
@@ -15,6 +16,7 @@ Scripts/
 
 # Entornos virtuales
 vSistema/
+venv/
 *.pyc
 pyvenv.cfg
 share/
@@ -32,6 +34,10 @@ media/
 # Archivos de recopilación de estáticos
 /static/
 
+# Permitir la carpeta lib en static
+!static/lib/
+!Sistema/ventas/static/lib/
+
 # Directorio de carga de archivos (si se usa algo diferente a S3)
 /media/
 
@@ -39,9 +45,7 @@ media/
 *.session
 
 # Ignorar archivos de migración excepto __init__.py
-__init__.py
-aplicacion/migrations/*.py
-!aplicacion/migrations/__init__.py
-/Sistema/ventas/migrations/0002_inventario_producto_activo_producto_imagen_and_more.py
-/Sistema/ventas/migrations/0003_remove_producto_cantidad_and_more.py
-/Sistema/ventas/migrations/0004_cajadiaria_movimientocaja.py
+
+Sistema/ventas/migrations/*.py
+!Sistema/ventas/migrations/__init__.py
+

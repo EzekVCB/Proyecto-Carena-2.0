@@ -6,6 +6,7 @@
 
 {% block content %}
 
+<link rel="stylesheet" href="{% static 'ventas/styles.css' %}">
 
 <div id="MaterialesModal" class="modal bd-example-modal-lg" style="overflow: scroll;">
     <div class="modal-dialog modal-lg">
@@ -414,11 +415,10 @@
             dataType: 'json',
         }).done(function (data) {
             if (data[1] == true){
-                window.open("{% url 'ExportPDF' %}" + data[0] + "/" + data[2], '_blank');
+                window.open("" + data[0] + "/" + data[2], '_blank');
                 location.reload();
             }
-            //window.open("{% url 'ExportPDF' %}" + data[0], '_blank');
-            //location.reload();
+
         }).fail(
             function (jqXHR, textStatus, errorThrown) {
                 Swal.fire({
