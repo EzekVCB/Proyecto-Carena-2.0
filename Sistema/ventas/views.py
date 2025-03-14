@@ -15,6 +15,7 @@ from django.utils import timezone
 from datetime import datetime, time
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 
 # Create your views here.
 
@@ -268,25 +269,109 @@ def delete_categoria_view(request):
 
 #Ventas
 @login_required
-def add_venta_view(request):
-    productos = Producto.objects.all()  # Obtener todos los productos
-    if request.method == "POST":
-        form = VentaForm(request.POST)
-        if form.is_valid():
-            venta = form.save(commit=False)  # No guardar aún
-            venta.save()  # Guardar la venta
-            # Aquí puedes agregar lógica para guardar los detalles de la venta
-            for producto_id in request.POST.getlist('productos'):
+def ventas_view(request):
+    # Verificar si hay una caja abierta para este usuario
+    caja_abierta = Caja.objects.filter(cajero=request.user, estado='ABIERTA').first()
+    
+    if not caja_abierta:
+        messages.warning(request, "Debes abrir una caja antes de realizar ventas.")
+        return redirect('caja')
+    
+    # Obtener datos para el formulario
+    productos = Producto.objects.all()
+    clientes = Cliente.objects.all()
+    medios_pago = MedioDePago.objects.all()
+    
+    if request.method == 'POST':
+        # Procesar la venta
+        try:
+            # Obtener datos del formulario
+            cliente_id = request.POST.get('cliente_id')
+            medio_pago_id = request.POST.get('medio_pago_id')
+            productos_ids = request.POST.getlist('productos_ids')
+            cantidades = request.POST.getlist('cantidades')
+            
+            # Montos por método de pago
+            monto_efectivo = float(request.POST.get('monto_efectivo', 0))
+            monto_qr = float(request.POST.get('monto_qr', 0))
+            monto_transferencia = float(request.POST.get('monto_transferencia', 0))
+            
+            # Calcular importe total
+            importe_total = monto_efectivo + monto_qr + monto_transferencia
+            
+            # Generar número de comprobante (puedes personalizar esto)
+            ultimo_numero = Venta.objects.all().order_by('-id').first()
+            if ultimo_numero:
+                numero_comprobante = f"{int(ultimo_numero.NumeroComprobate) + 1:010d}"
+            else:
+                numero_comprobante = "0000000001"
+            
+            # Crear la venta
+            venta = Venta(
+                NumeroComprobate=numero_comprobante,
+                Cliente_id=cliente_id if cliente_id else None,
+                MedioDePago_id=medio_pago_id,
+                ImporteTotal=importe_total,
+                caja=caja_abierta,
+                cajero=request.user,
+                monto_efectivo=monto_efectivo,
+                monto_qr=monto_qr,
+                monto_transferencia=monto_transferencia
+            )
+            venta.save()
+            
+            # Crear los detalles de venta
+            for i, producto_id in enumerate(productos_ids):
+                cantidad = int(cantidades[i])
                 producto = Producto.objects.get(id=producto_id)
-                detalle = DetalleVenta(Venta=venta, Producto=producto, Cantidad=request.POST.get(f'cantidad_{producto_id}'))
-                detalle.save()
-            messages.success(request, "Venta agregada exitosamente.")
-            return redirect('Ventas')  # Redirigir a la lista de ventas
-        else:
-            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
-    else:
-        form = VentaForm()
-    return render(request, 'add_ventas.html', {'form': form, 'productos': productos})
+                
+                # Verificar stock
+                if producto.Cantidad < cantidad:
+                    raise ValidationError(f"Stock insuficiente para {producto.Nombre}")
+                
+                # Crear detalle
+                DetalleVenta.objects.create(
+                    Venta=venta,
+                    Producto=producto,
+                    Cantidad=cantidad,
+                    PrecioUnitario=producto.PrecioDeContado,
+                    Subtotal=producto.PrecioDeContado * cantidad
+                )
+                
+                # Actualizar stock
+                producto.Cantidad -= cantidad
+                producto.save()
+            
+            # Crear movimiento de caja automáticamente
+            MovimientoCaja.objects.create(
+                caja=caja_abierta,
+                tipo_movimiento='INGRESO',
+                venta=venta,
+                monto_total=importe_total,
+                monto_efectivo=monto_efectivo,
+                monto_qr=monto_qr,
+                monto_transferencia=monto_transferencia,
+                descripcion=f"Venta #{numero_comprobante}",
+                cajero=request.user
+            )
+            
+            messages.success(request, f"Venta #{numero_comprobante} registrada exitosamente.")
+            return redirect('ventas')
+            
+        except ValidationError as e:
+            messages.error(request, str(e))
+            return redirect('ventas')
+        except Exception as e:
+            messages.error(request, f"Error al procesar la venta: {str(e)}")
+    
+    context = {
+        'caja': caja_abierta,
+        'productos': productos,
+        'clientes': clientes,
+        'medios_pago': medios_pago
+    }
+    
+    return render(request, 'ventas.html', context)
 
 def login_view(request):
     # Redirigir a Index si el usuario ya está autenticado
@@ -331,6 +416,25 @@ def register_view(request):
         form = RegisterForm()
 
     return render(request, 'register.html', {'form': form})
+
+def get_medio_pago_info(request):
+    medio_pago_id = request.GET.get('id')
+    medio_pago = MedioDePago.objects.get(id=medio_pago_id)
+    
+    # Determinar el tipo basado en el nombre (o agregar un campo tipo al modelo)
+    tipo = 'OTRO'
+    if 'efectivo' in medio_pago.Nombre.lower():
+        tipo = 'EFECTIVO'
+    elif 'qr' in medio_pago.Nombre.lower():
+        tipo = 'QR'
+    elif 'transferencia' in medio_pago.Nombre.lower():
+        tipo = 'TRANSFERENCIA'
+    
+    return JsonResponse({
+        'id': medio_pago.id,
+        'nombre': medio_pago.Nombre,
+        'tipo': tipo
+    })
 
 
 

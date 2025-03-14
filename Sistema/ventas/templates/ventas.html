@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Ventas</h1>
+        </div>
+    </div>
+
+    {% if not caja %}
+    <!-- Mensaje si no hay caja abierta -->
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="alert alert-warning text-center">
+                <h4><i class="fas fa-exclamation-triangle"></i> No hay una caja abierta</h4>
+                <p>Debe abrir una caja para poder realizar ventas.</p>
+                <a href="{% url 'caja' %}" class="btn btn-primary btn-lg mt-3">
+                    <i class="fas fa-cash-register mr-2"></i> Ir a Abrir Caja
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Interfaz de ventas con caja abierta -->
+    <div class="row">
+        <!-- Panel izquierdo: Productos -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title">Productos</h3>
+                    <div class="card-tools">
+                        <div class="input-group input-group-sm" style="width: 250px;">
+                            <input type="text" id="buscarProducto" class="form-control" placeholder="Buscar producto...">
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-default">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tablaProductos">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Precio</th>
+                                    <th>Stock</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in productos %}
+                                <tr>
+                                    <td>{{ producto.Codigo }}</td>
+                                    <td>{{ producto.Nombre }}</td>
+                                    <td>${{ producto.PrecioDeContado|floatformat:2 }}</td>
+                                    <td>{{ producto.Cantidad }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-success agregarProducto" 
+                                                data-id="{{ producto.id }}" 
+                                                data-nombre="{{ producto.Nombre }}" 
+                                                data-precio="{{ producto.PrecioDeContado }}"
+                                                data-stock="{{ producto.Cantidad }}">
+                                            <i class="fas fa-plus"></i> Agregar
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No hay productos disponibles</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho: Carrito y finalización -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3 class="card-title">Carrito de Venta</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="formVenta">
+                        {% csrf_token %}
+                        
+                        <!-- Cliente -->
+                        <div class="form-group">
+                            <label for="cliente_id">Cliente:</label>
+                            <select class="form-control" id="cliente_id" name="cliente_id">
+                                <option value="">Cliente Ocasional</option>
+                                {% for cliente in clientes %}
+                                <option value="{{ cliente.id }}">{{ cliente.Nombre }} {{ cliente.Apellido }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Medio de Pago -->
+                        <div class="form-group">
+                            <label for="medio_pago_id">Medio de Pago:</label>
+                            <select class="form-control" id="medio_pago_id" name="medio_pago_id" required>
+                                <option value="">Seleccione un medio de pago</option>
+                                {% for medio in medios_pago %}
+                                <option value="{{ medio.id }}">{{ medio.Nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Productos en el carrito -->
+                        <div class="table-responsive mt-4">
+                            <table class="table table-sm" id="tablaCarrito">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cant.</th>
+                                        <th>Precio</th>
+                                        <th>Subtotal</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Aquí se agregarán los productos dinámicamente -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="3" class="text-right">Total:</th>
+                                        <th id="totalVenta">$0.00</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        
+                        <!-- Campos ocultos para enviar los productos -->
+                        <div id="productosSeleccionados">
+                            <!-- Aquí se agregarán los inputs hidden -->
+                        </div>
+                        
+                        <!-- Desglose de pagos -->
+                        <div class="card mt-4">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="card-title mb-0">Desglose de Pago</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="monto_efectivo">Efectivo:</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" step="0.01" min="0" class="form-control metodo-pago" id="monto_efectivo" name="monto_efectivo" value="0">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="monto_qr">QR:</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" step="0.01" min="0" class="form-control metodo-pago" id="monto_qr" name="monto_qr" value="0">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="monto_transferencia">Transferencia:</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" step="0.01" min="0" class="form-control metodo-pago" id="monto_transferencia" name="monto_transferencia" value="0">
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-danger" id="alertaPago" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle"></i> La suma de los montos debe ser igual al total de la venta.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botón finalizar venta -->
+                        <button type="submit" class="btn btn-primary btn-lg btn-block mt-4" id="btnFinalizarVenta" disabled>
+                            <i class="fas fa-check-circle mr-2"></i> Finalizar Venta
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if caja %}
+<script>
+    // Variables globales
+    let productos = [];
+    let total = 0;
+    
+    // Agregar producto al carrito
+    $(document).on('click', '.agregarProducto', function() {
+        const id = $(this).data('id');
+        const nombre = $(this).data('nombre');
+        const precio = parseFloat($(this).data('precio'));
+        const stock = parseFloat($(this).data('stock'));
+        
+        // Verificar si ya existe en el carrito
+        let existe = false;
+        let cantidad = 1;
+        
+        productos.forEach(function(item) {
+            if (item.id === id) {
+                existe = true;
+                if (item.cantidad < stock) {
+                    item.cantidad++;
+                    item.subtotal = item.cantidad * precio;
+                } else {
+                    alert('No hay suficiente stock disponible');
+                }
+            }
+        });
+        
+        if (!existe) {
+            productos.push({
+                id: id,
+                nombre: nombre,
+                precio: precio,
+                cantidad: cantidad,
+                subtotal: precio * cantidad
+            });
+        }
+        
+        actualizarCarrito();
+    });
+    
+    // Eliminar producto del carrito
+    $(document).on('click', '.eliminarProducto', function() {
+        const index = $(this).data('index');
+        productos.splice(index, 1);
+        actualizarCarrito();
+    });
+    
+    // Actualizar carrito
+    function actualizarCarrito() {
+        let html = '';
+        let inputsHidden = '';
+        total = 0;
+        
+        productos.forEach(function(item, index) {
+            html += `
+                <tr>
+                    <td>${item.nombre}</td>
+                    <td>${item.cantidad}</td>
+                    <td>$${item.precio.toFixed(2)}</td>
+                    <td>$${item.subtotal.toFixed(2)}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger eliminarProducto" data-index="${index}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            
+            inputsHidden += `
+                <input type="hidden" name="productos_ids" value="${item.id}">
+                <input type="hidden" name="cantidades" value="${item.cantidad}">
+            `;
+            
+            total += item.subtotal;
+        });
+        
+        $('#tablaCarrito tbody').html(html);
+        $('#totalVenta').text('$' + total.toFixed(2));
+        $('#productosSeleccionados').html(inputsHidden);
+        
+        // Habilitar/deshabilitar botón finalizar
+        if (productos.length > 0) {
+            $('#btnFinalizarVenta').prop('disabled', false);
+            // Actualizar el monto efectivo por defecto
+            $('#monto_efectivo').val(total.toFixed(2));
+            $('#monto_qr').val('0.00');
+            $('#monto_transferencia').val('0.00');
+        } else {
+            $('#btnFinalizarVenta').prop('disabled', true);
+            $('#monto_efectivo').val('0.00');
+            $('#monto_qr').val('0.00');
+            $('#monto_transferencia').val('0.00');
+        }
+        
+        validarMontos();
+    }
+    
+    // Validar que los montos de pago sumen el total
+    $('.metodo-pago').on('input', function() {
+        validarMontos();
+    });
+    
+    function validarMontos() {
+        const efectivo = parseFloat($('#monto_efectivo').val()) || 0;
+        const qr = parseFloat($('#monto_qr').val()) || 0;
+        const transferencia = parseFloat($('#monto_transferencia').val()) || 0;
+        
+        const totalMetodos = efectivo + qr + transferencia;
+        
+        if (Math.abs(totalMetodos - total) < 0.01) {
+            $('#alertaPago').hide();
+            $('#btnFinalizarVenta').prop('disabled', false);
+        } else {
+            $('#alertaPago').show();
+            $('#btnFinalizarVenta').prop('disabled', true);
+        }
+    }
+    
+    // Buscar productos
+    $('#buscarProducto').on('keyup', function() {
+        const valor = $(this).val().toLowerCase();
+        $('#tablaProductos tbody tr').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(valor) > -1);
+        });
+    });
+    
+    // Validar formulario antes de enviar
+    $('#formVenta').on('submit', function(e) {
+        if (productos.length === 0) {
+            e.preventDefault();
+            alert('Debe agregar al menos un producto a la venta');
+            return false;
+        }
+        
+        const medioPago = $('#medio_pago_id').val();
+        if (!medioPago) {
+            e.preventDefault();
+            alert('Debe seleccionar un medio de pago');
+            return false;
+        }
+        
+        const efectivo = parseFloat($('#monto_efectivo').val()) || 0;
+        const qr = parseFloat($('#monto_qr').val()) || 0;
+        const transferencia = parseFloat($('#monto_transferencia').val()) || 0;
+        
+        const totalMetodos = efectivo + qr + transferencia;
+        
+        if (Math.abs(totalMetodos - total) >= 0.01) {
+            e.preventDefault();
+            alert('La suma de los montos por método de pago debe ser igual al total de la venta');
+            return false;
+        }
+        
+        return true;
+    });
+
+    $('#medio_pago_id').on('change', function() {
+        const medioPagoId = $(this).val();
+        
+        // Resetear todos los montos
+        $('#monto_efectivo').val('0.00');
+        $('#monto_qr').val('0.00');
+        $('#monto_transferencia').val('0.00');
+        
+        // Obtener el tipo de medio de pago
+        $.ajax({
+            url: '/get-medio-pago-info/',
+            data: { id: medioPagoId },
+            success: function(data) {
+                // Asignar el monto total al campo correspondiente
+                if (data.tipo === 'EFECTIVO') {
+                    $('#monto_efectivo').val(total.toFixed(2));
+                } else if (data.tipo === 'QR') {
+                    $('#monto_qr').val(total.toFixed(2));
+                } else if (data.tipo === 'TRANSFERENCIA') {
+                    $('#monto_transferencia').val(total.toFixed(2));
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

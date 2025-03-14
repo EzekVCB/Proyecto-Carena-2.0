@@ -5,7 +5,7 @@ urlpatterns = [
     path('', views.index_view, name ='Index'),
     #path('ventas/', views.ventas_view, name='Ventas'),
     #path('ventas/', views.agregar_venta_view, name='AddVenta'),
-    path('ventas/', views.add_venta_view, name='AddVenta'),
+    #path('ventas/', views.add_venta_view, name='AddVenta'),
     path('clientes/', views.clientes_view, name = 'Clientes'),
     path('add_cliente/', views.add_cliente_view, name = 'AddCliente'),
     path('edit_cliente/', views.edit_cliente_view, name = 'EditCliente'),
@@ -25,4 +25,7 @@ urlpatterns = [
     path('login/', views.login_view, name='Login'),
     path('logout/', views.logout_view, name='Logout'),
     path('register/', views.register_view, name='Register'),
+    path('caja/', views.caja_view, name='caja'),
+    path('ventas/', views.ventas_view, name='ventas'),
+    path('historial-cajas/', views.historial_cajas_view, name='historial_cajas'),
 ]
