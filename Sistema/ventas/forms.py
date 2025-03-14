@@ -1,5 +1,7 @@
 from django import forms
 from .models import Proveedor, Cliente, Producto, Categoria, Venta  # Asegúrate de importar todos los modelos necesarios
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 
 class AddClienteForm(forms.ModelForm):
     class Meta:
@@ -154,3 +156,63 @@ class VentaForm(forms.ModelForm):
             'ImporteTotal': 'Importe Total',
         }
 
+class LoginForm(forms.Form):
+    username = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'})
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña'})
+    )
+
+class RegisterForm(UserCreationForm):
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Correo electrónico'
+        }),
+        label=""
+    )
+    first_name = forms.CharField(
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Nombre'
+        }),
+        label=""
+    )
+    last_name = forms.CharField(
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Apellido'
+        }),
+        label=""
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'password1', 'password2']
+
+    def __init__(self, *args, **kwargs):
+        super(RegisterForm, self).__init__(*args, **kwargs)
+        # Personalizar los widgets y quitar las etiquetas
+        self.fields['username'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Nombre de usuario'
+        })
+        self.fields['username'].label = ""
+
+        self.fields['password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Contraseña'
+        })
+        self.fields['password1'].label = ""
+        self.fields['password1'].help_text = "La contraseña debe tener al menos 8 caracteres y no puede ser común"
+
+        self.fields['password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Confirmar contraseña'
+        })
+        self.fields['password2'].label = ""
+        self.fields['password2'].help_text = "Ingresa la misma contraseña para verificar"

@@ -14,6 +14,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from datetime import datetime, time
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 
@@ -56,6 +57,7 @@ def obtener_productos_stock_bajo():
 
     return productos
 
+@login_required
 def index_view(request):
     context = {
         'ventas_dia': obtener_ventas_del_dia(),
@@ -162,6 +164,7 @@ def delete_proveedor_view(request):
     messages.success(request, "Proveedor eliminado exitosamente.")
     return redirect('Proveedores')
 
+@login_required
 def productos_view(request):
     productos = Producto.objects.all()
     print(productos)
@@ -208,6 +211,7 @@ def delete_producto_view(request):
     messages.success(request, "Producto eliminado exitosamente.")
     return redirect('Productos')
 
+@login_required
 def categorias_view(request):
     categorias = Categoria.objects.all()
     form_personal = AddCategoriaForm()
@@ -263,6 +267,7 @@ def delete_categoria_view(request):
     return redirect('Categorias')
 
 #Ventas
+@login_required
 def add_venta_view(request):
     productos = Producto.objects.all()  # Obtener todos los productos
     if request.method == "POST":
@@ -283,22 +288,49 @@ def add_venta_view(request):
         form = VentaForm()
     return render(request, 'add_ventas.html', {'form': form, 'productos': productos})
 
-
 def login_view(request):
-    if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            auth_login(request, user)
-            return redirect('Index')  # Redirige a la página principal
-        else:
-            messages.error(request, "Credenciales incorrectas.")
-    return render(request, "login.html")
+    # Redirigir a Index si el usuario ya está autenticado
+    if request.user.is_authenticated:
+        return redirect('Index')
+        
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                auth_login(request, user)
+                # Redirigir a la página solicitada originalmente o a Index
+                next_page = request.GET.get('next', 'Index')
+                return redirect(next_page)
+            else:
+                messages.error(request, 'Usuario o contraseña incorrectos')
+    else:
+        form = LoginForm()
+
+    return render(request, 'login.html', {'form': form})
 
 def logout_view(request):
     auth_logout(request)
-    return redirect('Login')  # Redirige a la página de login
+    return redirect('Login')
+
+def register_view(request):
+    # Redirigir a Index si el usuario ya está autenticado
+    if request.user.is_authenticated:
+        return redirect('Index')
+
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            username = form.cleaned_data.get('username')
+            messages.success(request, f'Cuenta creada para {username}. Ahora puedes iniciar sesión.')
+            return redirect('Login')
+    else:
+        form = RegisterForm()
+
+    return render(request, 'register.html', {'form': form})
 
 
 
