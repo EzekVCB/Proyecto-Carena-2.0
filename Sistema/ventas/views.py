@@ -224,27 +224,37 @@ def add_categoria_view(request):
         form = AddCategoriaForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                form.save()
-                messages.info(request, "Categoria agregado exitosamente.")
+                # Guardar la categoría
+                categoria = form.save()
+                
+                # Procesar subcategorías
+                subcategorias = request.POST.getlist('subcategorias[]')
+                for subcategoria_nombre in subcategorias:
+                    if subcategoria_nombre.strip():  # Evitar subcategorías vacías
+                        SubCategoria.objects.create(
+                            Nombre=subcategoria_nombre.strip(),
+                            Categoria=categoria
+                        )
+                
+                messages.success(request, "Categoría y subcategorías agregadas exitosamente.")
             except Exception as e:
-                messages.error(request, f"Error al guardar el categoria: {str(e)}")
+                messages.error(request, f"Error al guardar la categoría: {str(e)}")
         else:
             messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
     return redirect('Categorias')
 
 def edit_categoria_view(request):
-    print('LLEGUE')
     id_categoria_editar = request.POST.get('id_categoria_editar')
-    print(id_categoria_editar)
     if id_categoria_editar:
         if request.method == "POST":
-            categoria = Categoria.objects.get(pk=request.POST.get('id_categoria_editar'))
-            form = EditCategoriaForm(request.POST, request.FILES, instance=categoria)
+            categoria = Categoria.objects.get(pk=id_categoria_editar)
+            form = EditCategoriaForm(request.POST, instance=categoria)
             if form.is_valid():
                 try:
                     form.save()
+                    messages.success(request, "Categoría actualizada exitosamente.")
                 except Exception as e:
-                    messages.success(request, f"Error al modificar el ccategorialiente: {str(e)}")
+                    messages.error(request, f"Error al modificar la categoría: {str(e)}")
             else:
                 messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
     else:
@@ -261,6 +271,7 @@ def delete_categoria_view(request):
     else:
         print('Estoy en deleteCategoria No eliminado.')
     return redirect('Categorias')
+
 
 #Ventas
 def add_venta_view(request):

@@ -131,6 +131,12 @@ class AddCategoriaForm(forms.ModelForm):
         labels = {
             'Nombre': 'Nombre',
         }
+        widgets = {
+            'Nombre': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de la categoría'
+            }),
+        }
 
 class EditCategoriaForm(forms.ModelForm):
     class Meta:
