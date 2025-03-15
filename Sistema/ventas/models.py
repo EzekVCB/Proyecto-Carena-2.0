@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.contrib.admin.views.decorators import staff_member_required
+import decimal
 
 # Create your models here.
 class Cliente(models.Model):
@@ -184,14 +185,13 @@ class Caja(models.Model):
     def cerrar_caja(self, saldo_final_real, observaciones=None):
         """Cierra la caja calculando la diferencia entre saldo esperado y real"""
         # Calcular el saldo final según el sistema
-        total_efectivo = self.movimientos.filter(
-            tipo_movimiento='INGRESO'
-        ).aggregate(
+        total_ventas = self.movimientos.aggregate(
             total=models.Sum('monto_total')
         )['total'] or 0
         
-        self.saldo_final_sistema = self.saldo_inicial + total_efectivo
-        self.saldo_final_real = saldo_final_real
+        self.saldo_final_sistema = self.saldo_inicial + total_ventas
+        # Convertir el saldo_final_real a decimal
+        self.saldo_final_real = decimal.Decimal(str(saldo_final_real))
         self.diferencia = self.saldo_final_real - self.saldo_final_sistema
         self.observaciones = observaciones
         self.fecha_cierre = timezone.now()
@@ -199,36 +199,26 @@ class Caja(models.Model):
         self.save()
         
     def get_total_ventas(self):
-        """Retorna el total de ventas realizadas en esta caja"""
-        return self.movimientos.filter(
-            tipo_movimiento='INGRESO'
-        ).aggregate(
-            total=models.Sum('monto_total')
-        )['total'] or 0
+        """Retorna el total de ventas de la caja"""
+        return self.movimientos.aggregate(total=models.Sum('monto_total'))['total'] or 0
     
     def get_total_efectivo(self):
         """Retorna el total de ventas en efectivo"""
         return self.movimientos.filter(
-            tipo_movimiento='INGRESO'
-        ).aggregate(
-            total=models.Sum('monto_total')
-        )['total'] or 0
+            venta__MedioDePago__tipo='EFECTIVO'
+        ).aggregate(total=models.Sum('monto_total'))['total'] or 0
     
     def get_total_qr(self):
         """Retorna el total de ventas por QR"""
         return self.movimientos.filter(
-            tipo_movimiento='INGRESO'
-        ).aggregate(
-            total=models.Sum('monto_total')
-        )['total'] or 0
+            venta__MedioDePago__tipo='QR'
+        ).aggregate(total=models.Sum('monto_total'))['total'] or 0
     
     def get_total_transferencia(self):
         """Retorna el total de ventas por transferencia"""
         return self.movimientos.filter(
-            tipo_movimiento='INGRESO'
-        ).aggregate(
-            total=models.Sum('monto_total')
-        )['total'] or 0
+            venta__MedioDePago__tipo='TRANSFERENCIA'
+        ).aggregate(total=models.Sum('monto_total'))['total'] or 0
 
 class MovimientoCaja(models.Model):
     TIPO_CHOICES = [
@@ -420,47 +410,4 @@ def ventas_view(request):
     }
     
     return render(request, 'ventas.html', context)
-
-@staff_member_required
-def historial_cajas_view(request):
-    # Filtros
-    fecha_inicio = request.GET.get('fecha_inicio')
-    fecha_fin = request.GET.get('fecha_fin')
-    cajero_id = request.GET.get('cajero_id')
-    estado = request.GET.get('estado')
-    
-    # Consulta base
-    cajas = Caja.objects.all()
-    
-    # Aplicar filtros
-    if fecha_inicio:
-        cajas = cajas.filter(fecha_apertura__date__gte=fecha_inicio)
-    
-    if fecha_fin:
-        cajas = cajas.filter(fecha_apertura__date__lte=fecha_fin)
-    
-    if cajero_id:
-        cajas = cajas.filter(cajero_id=cajero_id)
-    
-    if estado:
-        cajas = cajas.filter(estado=estado)
-    
-    # Ordenar por fecha de apertura descendente
-    cajas = cajas.order_by('-fecha_apertura')
-    
-    # Obtener lista de cajeros para el filtro
-    cajeros = User.objects.filter(cajas__isnull=False).distinct()
-    
-    context = {
-        'cajas': cajas,
-        'cajeros': cajeros,
-        'filtros': {
-            'fecha_inicio': fecha_inicio,
-            'fecha_fin': fecha_fin,
-            'cajero_id': cajero_id,
-            'estado': estado
-        }
-    }
-    
-    return render(request, 'historial_cajas.html', context)
 

@@ -27,13 +27,13 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="fecha_inicio">Fecha Inicio:</label>
-                                    <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ filtros.fecha_inicio }}">
+                                    <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ filtros.fecha_inicio }}" data-toggle="tooltip" title="Seleccione la fecha de inicio">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="fecha_fin">Fecha Fin:</label>
-                                    <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ filtros.fecha_fin }}">
+                                    <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ filtros.fecha_fin }}" data-toggle="tooltip" title="Seleccione la fecha de fin">
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -71,6 +71,9 @@
                             </div>
                         </div>
                     </form>
+                </div>
+                <div class="card-footer">
+                    <small>Mostrando {{ cajas.count }} cajas</small>
                 </div>
             </div>
         </div>

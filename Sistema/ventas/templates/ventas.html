@@ -344,26 +344,25 @@
         const efectivo = parseFloat($('#monto_efectivo').val()) || 0;
         const qr = parseFloat($('#monto_qr').val()) || 0;
         const transferencia = parseFloat($('#monto_transferencia').val()) || 0;
-        
+
         const totalMetodos = efectivo + qr + transferencia;
-        
+
         if (Math.abs(totalMetodos - total) >= 0.01) {
             e.preventDefault();
             alert('La suma de los montos por método de pago debe ser igual al total de la venta');
             return false;
         }
-        
+
         return true;
     });
 
     $('#medio_pago_id').on('change', function() {
         const medioPagoId = $(this).val();
-        
         // Resetear todos los montos
         $('#monto_efectivo').val('0.00');
         $('#monto_qr').val('0.00');
         $('#monto_transferencia').val('0.00');
-        
+
         // Obtener el tipo de medio de pago
         $.ajax({
             url: '/get-medio-pago-info/',

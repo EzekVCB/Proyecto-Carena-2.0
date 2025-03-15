@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load django_bootstrap5 %}
 
 {% block content %}
 <div class="container-fluid">
@@ -35,9 +36,7 @@
                                 <input type="number" step="0.01" min="0" class="form-control" id="saldo_inicial" name="saldo_inicial" required>
                             </div>
                         </div>
-                        <button type="submit" name="abrir_caja" class="btn btn-primary btn-lg btn-block mt-4">
-                            <i class="fas fa-cash-register mr-2"></i> Abrir Caja
-                        </button>
+                        {% bootstrap_button button_type="submit" name="abrir_caja" content="<i class='fas fa-cash-register mr-2'></i> Abrir Caja" button_class="btn-primary btn-lg btn-block mt-4" %}
                     </form>
                 </div>
             </div>
@@ -148,7 +147,8 @@
                 <div class="card-body">
                     <form method="POST" id="cerrarCajaForm">
                         {% csrf_token %}
-                        <div class="form-group">
+                        
+                        <div class="form-group mb-3">
                             <label for="saldo_esperado">Saldo Esperado en Efectivo:</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
@@ -159,7 +159,7 @@
                             <small class="form-text text-muted">Saldo inicial + Ventas en efectivo</small>
                         </div>
                         
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                             <label for="saldo_final_real">Saldo Final Real (Efectivo contado):</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
@@ -169,7 +169,7 @@
                             </div>
                         </div>
                         
-                        <div class="form-group" id="diferenciaGroup" style="display: none;">
+                        <div class="form-group mb-3" id="diferenciaGroup" style="display: none;">
                             <label for="diferencia">Diferencia:</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
@@ -182,14 +182,12 @@
                             </div>
                         </div>
                         
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                             <label for="observaciones">Observaciones:</label>
                             <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
                         </div>
                         
-                        <button type="submit" name="cerrar_caja" class="btn btn-danger btn-lg btn-block mt-4" id="btnCerrarCaja">
-                            <i class="fas fa-lock mr-2"></i> Cerrar Caja
-                        </button>
+                        {% bootstrap_button button_type="submit" name="cerrar_caja" content="<i class='fas fa-lock mr-2'></i> Cerrar Caja" button_class="btn-danger btn-lg btn-block mt-4" button_id="btnCerrarCaja" %}
                     </form>
                 </div>
             </div>
@@ -219,7 +217,7 @@
     // Validación antes de cerrar caja
     document.getElementById('cerrarCajaForm').addEventListener('submit', function(e) {
         var saldoFinalReal = document.getElementById('saldo_final_real').value;
-        var diferencia = document.getElementById('diferencia').value;
+        var diferencia = parseFloat(document.getElementById('diferencia').value || 0);
         var observaciones = document.getElementById('observaciones').value;
         
         if (!saldoFinalReal) {
@@ -234,7 +232,17 @@
             return false;
         }
         
-        return confirm('¿Está seguro que desea cerrar la caja?');
+        // Confirmar cierre de caja
+        if (!confirm('¿Está seguro que desea cerrar la caja?')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar indicador de carga
+        document.getElementById('btnCerrarCaja').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cerrando caja...';
+        document.getElementById('btnCerrarCaja').disabled = true;
+        
+        return true;
     });
 </script>
 {% endif %}

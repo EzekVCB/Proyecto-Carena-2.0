@@ -16,6 +16,7 @@ from datetime import datetime, time
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 
 # Create your views here.
 
@@ -420,7 +421,7 @@ def register_view(request):
 def get_medio_pago_info(request):
     medio_pago_id = request.GET.get('id')
     medio_pago = MedioDePago.objects.get(id=medio_pago_id)
-    
+
     # Determinar el tipo basado en el nombre (o agregar un campo tipo al modelo)
     tipo = 'OTRO'
     if 'efectivo' in medio_pago.Nombre.lower():
@@ -429,12 +430,152 @@ def get_medio_pago_info(request):
         tipo = 'QR'
     elif 'transferencia' in medio_pago.Nombre.lower():
         tipo = 'TRANSFERENCIA'
-    
+
     return JsonResponse({
         'id': medio_pago.id,
         'nombre': medio_pago.Nombre,
         'tipo': tipo
     })
+
+@login_required
+def caja_view(request):
+    # Verificar si el usuario tiene una caja abierta
+    caja_abierta = Caja.objects.filter(cajero=request.user, estado='ABIERTA').first()
+
+    # Inicializar variables de contexto
+    context = {
+        'caja': caja_abierta,
+        'total_ventas': 0,
+        'saldo_esperado': 0,
+        'movimientos': [],
+    }
+
+    if caja_abierta:
+        # Obtener movimientos de la caja
+        movimientos = caja_abierta.movimientos.all().order_by('-fecha')
+
+        # Calcular total de ventas (suma de monto_total)
+        total_ventas = movimientos.aggregate(total=Sum('monto_total'))['total'] or 0
+
+        # Calcular saldo esperado (saldo inicial + ventas)
+        # Asumimos que todas las ventas son en efectivo para este cálculo
+        saldo_esperado = caja_abierta.saldo_inicial + total_ventas
+
+        # Actualizar contexto
+        context.update({
+            'movimientos': movimientos,
+            'total_ventas': total_ventas,
+            'saldo_esperado': saldo_esperado,
+        })
+
+    if request.method == 'POST':
+        if 'abrir_caja' in request.POST:
+            try:
+                saldo_inicial = request.POST.get('saldo_inicial')
+                if not saldo_inicial:
+                    messages.error(request, "Debes ingresar un saldo inicial.")
+                    return redirect('caja')
+
+                # Convertir a float para validar
+                saldo_inicial = float(saldo_inicial)
+
+                # Crear nueva caja
+                nueva_caja = Caja.objects.create(
+                    cajero=request.user,
+                    saldo_inicial=saldo_inicial,
+                    estado='ABIERTA'
+                )
+
+                messages.success(request, f"Caja #{nueva_caja.id} abierta exitosamente.")
+                return redirect('caja')
+
+            except Exception as e:
+                messages.error(request, f"Error al abrir la caja: {str(e)}")
+                return redirect('caja')
+
+        elif 'cerrar_caja' in request.POST:
+            if not caja_abierta:
+                messages.error(request, "No tienes una caja abierta para cerrar.")
+                return redirect('caja')
+
+            # Verificar que haya ventas en la caja
+            if not caja_abierta.movimientos.exists():
+                messages.error(request, "No puedes cerrar la caja sin haber realizado ventas.")
+                return redirect('caja')
+
+            try:
+                saldo_final_real = request.POST.get('saldo_final_real')
+                observaciones = request.POST.get('observaciones', '')
+
+                if not saldo_final_real:
+                    messages.error(request, "Debes ingresar el saldo final real.")
+                    return redirect('caja')
+
+                # Asegurarse de que saldo_final_real sea un número válido
+                try:
+                    saldo_final_real = float(saldo_final_real)
+                except ValueError:
+                    messages.error(request, "El saldo final debe ser un número válido.")
+                    return redirect('caja')
+
+                # Cerrar la caja
+                caja_abierta.cerrar_caja(
+                    saldo_final_real=saldo_final_real,
+                    observaciones=observaciones
+                )
+
+                messages.success(request, f"Caja #{caja_abierta.id} cerrada exitosamente.")
+                return redirect('index')  # Redirigir al dashboard
+
+            except Exception as e:
+                messages.error(request, f"Error al cerrar la caja: {str(e)}")
+                return redirect('caja')
+
+    return render(request, 'caja.html', context)
+
+@staff_member_required
+def historial_cajas_view(request):
+    # Filtros
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    cajero_id = request.GET.get('cajero_id')
+    estado = request.GET.get('estado')
+    
+    # Consulta base
+    cajas = Caja.objects.all()
+    
+    # Aplicar filtros
+    if fecha_inicio:
+        cajas = cajas.filter(fecha_apertura__date__gte=fecha_inicio)
+    
+    if fecha_fin:
+        cajas = cajas.filter(fecha_apertura__date__lte=fecha_fin)
+    
+    if cajero_id:
+        cajas = cajas.filter(cajero_id=cajero_id)
+    
+    if estado:
+        cajas = cajas.filter(estado=estado)
+    
+    # Ordenar por fecha de apertura descendente
+    cajas = cajas.order_by('-fecha_apertura')
+    
+    # Obtener lista de cajeros para el filtro
+    cajeros = User.objects.filter(cajas__isnull=False).distinct()
+    
+    context = {
+        'cajas': cajas,
+        'cajeros': cajeros,
+        'filtros': {
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+            'cajero_id': cajero_id,
+            'estado': estado
+        }
+    }
+    
+    return render(request, 'historial_cajas.html', context)
+
 
 
 
