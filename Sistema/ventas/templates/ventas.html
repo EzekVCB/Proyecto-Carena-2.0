@@ -1,196 +1,108 @@
 {% extends "base.html" %}
 {% load static %}
+{% load django_bootstrap5 %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">Ventas</h1>
-        </div>
-    </div>
-
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">
+        <i class="fas fa-cash-register mr-2"></i>Registro de Ventas
+    </h1>
+    
     {% if not caja %}
-    <!-- Mensaje si no hay caja abierta -->
-    <div class="row">
-        <div class="col-md-8 mx-auto">
-            <div class="alert alert-warning text-center">
-                <h4><i class="fas fa-exclamation-triangle"></i> No hay una caja abierta</h4>
-                <p>Debe abrir una caja para poder realizar ventas.</p>
-                <a href="{% url 'caja' %}" class="btn btn-primary btn-lg mt-3">
-                    <i class="fas fa-cash-register mr-2"></i> Ir a Abrir Caja
-                </a>
-            </div>
-        </div>
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle mr-2"></i> No hay una caja abierta para este usuario. Debe abrir una caja antes de realizar ventas.
+        <a href="{% url 'apertura_caja' %}" class="btn btn-primary ml-3">
+            <i class="fas fa-door-open mr-1"></i> Abrir Caja
+        </a>
     </div>
     {% else %}
-    <!-- Interfaz de ventas con caja abierta -->
-    <div class="row">
-        <!-- Panel izquierdo: Productos -->
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">Productos</h3>
-                    <div class="card-tools">
-                        <div class="input-group input-group-sm" style="width: 250px;">
-                            <input type="text" id="buscarProducto" class="form-control" placeholder="Buscar producto...">
-                            <div class="input-group-append">
-                                <button type="button" class="btn btn-default">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="tablaProductos">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Nombre</th>
-                                    <th>Precio</th>
-                                    <th>Stock</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for producto in productos %}
-                                <tr>
-                                    <td>{{ producto.Codigo }}</td>
-                                    <td>{{ producto.Nombre }}</td>
-                                    <td>${{ producto.PrecioDeContado|floatformat:2 }}</td>
-                                    <td>{{ producto.Cantidad }}</td>
-                                    <td>
-                                        <button type="button" class="btn btn-sm btn-success agregarProducto" 
-                                                data-id="{{ producto.id }}" 
-                                                data-nombre="{{ producto.Nombre }}" 
-                                                data-precio="{{ producto.PrecioDeContado }}"
-                                                data-stock="{{ producto.Cantidad }}">
-                                            <i class="fas fa-plus"></i> Agregar
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center">No hay productos disponibles</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+    
+    <!-- Buscador de productos -->
+    <div class="input-group my-3">
+        <input type="text" id="buscarProducto" class="form-control" placeholder="Buscar producto...">
+        <div class="input-group-append">
+            <span class="input-group-text bg-white">
+                <i class="fas fa-search text-primary"></i>
+            </span>
         </div>
-
-        <!-- Panel derecho: Carrito y finalización -->
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h3 class="card-title">Carrito de Venta</h3>
+    </div>
+    
+    <!-- Lista de productos con scroll -->
+    <div id="lista-productos" class="list-group mb-4" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;">
+        {% for producto in productos %}
+        <div class="list-group-item d-flex justify-content-between align-items-center producto-item">
+            <span><strong>{{ producto.Nombre }}</strong> - ${{ producto.PrecioDeContado|floatformat:2 }}</span>
+            <button type="button" class="btn btn-sm btn-primary" 
+                    onclick="agregarProductoManual({{ producto.id }}, '{{ producto.Nombre }}', {{ producto.PrecioDeContado }}, {{ producto.Cantidad }})">
+                <i class="fas fa-plus-circle"></i> Agregar
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="row">
+        <!-- Tabla de productos agregados -->
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-shopping-cart mr-2"></i>Productos Seleccionados
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <form method="POST" id="formVenta">
+                    <form id="formVenta" action="{% url 'ventas' %}" method="post">
                         {% csrf_token %}
-                        
-                        <!-- Cliente -->
-                        <div class="form-group">
-                            <label for="cliente_id">Cliente:</label>
-                            <select class="form-control" id="cliente_id" name="cliente_id">
-                                <option value="">Cliente Ocasional</option>
-                                {% for cliente in clientes %}
-                                <option value="{{ cliente.id }}">{{ cliente.Nombre }} {{ cliente.Apellido }}</option>
-                                {% endfor %}
-                            </select>
+                        <div id="productosSeleccionados">
+                            <!-- Aquí se agregarán los inputs hidden con los productos seleccionados -->
                         </div>
                         
-                        <!-- Medio de Pago -->
-                        <div class="form-group">
-                            <label for="medio_pago_id">Medio de Pago:</label>
-                            <select class="form-control" id="medio_pago_id" name="medio_pago_id" required>
-                                <option value="">Seleccione un medio de pago</option>
-                                {% for medio in medios_pago %}
-                                <option value="{{ medio.id }}">{{ medio.Nombre }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <!-- Productos en el carrito -->
-                        <div class="table-responsive mt-4">
-                            <table class="table table-sm" id="tablaCarrito">
-                                <thead>
-                                    <tr>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="tablaCarrito">
+                                <thead class="thead-dark">
+                                    <tr class="text-center">
                                         <th>Producto</th>
-                                        <th>Cant.</th>
+                                        <th>Cantidad</th>
                                         <th>Precio</th>
                                         <th>Subtotal</th>
-                                        <th></th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- Aquí se agregarán los productos dinámicamente -->
+                                    <!-- Aquí se agregarán los productos seleccionados -->
                                 </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th colspan="3" class="text-right">Total:</th>
-                                        <th id="totalVenta">$0.00</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
-                        
-                        <!-- Campos ocultos para enviar los productos -->
-                        <div id="productosSeleccionados">
-                            <!-- Aquí se agregarán los inputs hidden -->
-                        </div>
-                        
-                        <!-- Desglose de pagos -->
-                        <div class="card mt-4">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="card-title mb-0">Desglose de Pago</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="form-group">
-                                    <label for="monto_efectivo">Efectivo:</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">$</span>
-                                        </div>
-                                        <input type="number" step="0.01" min="0" class="form-control metodo-pago" id="monto_efectivo" name="monto_efectivo" value="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="monto_qr">QR:</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">$</span>
-                                        </div>
-                                        <input type="number" step="0.01" min="0" class="form-control metodo-pago" id="monto_qr" name="monto_qr" value="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="monto_transferencia">Transferencia:</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text">$</span>
-                                        </div>
-                                        <input type="number" step="0.01" min="0" class="form-control metodo-pago" id="monto_transferencia" name="monto_transferencia" value="0">
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-danger" id="alertaPago" style="display: none;">
-                                    <i class="fas fa-exclamation-triangle"></i> La suma de los montos debe ser igual al total de la venta.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Botón finalizar venta -->
-                        <button type="submit" class="btn btn-primary btn-lg btn-block mt-4" id="btnFinalizarVenta" disabled>
-                            <i class="fas fa-check-circle mr-2"></i> Finalizar Venta
-                        </button>
                     </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel derecho: Total y medio de pago -->
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-cash-register mr-2"></i>Resumen de Venta
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h4 class="font-weight-bold">Total: <span id="totalVenta" class="float-right">$0.00</span></h4>
+                    
+                    <hr>
+                    
+                    <div class="form-group">
+                        <label for="medio_pago_id"><strong>Medio de Pago:</strong></label>
+                        <select id="medio_pago_id" name="medio_pago_id" class="form-control">
+                            <option value="">Seleccione un medio de pago</option>
+                            {% for medio in medios_pago %}
+                            <option value="{{ medio.id }}">{{ medio.Nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button id="btnFinalizarVenta" class="btn btn-success btn-block mt-4" disabled>
+                        <i class="fas fa-check-circle mr-2"></i>Finalizar Venta
+                    </button>
                 </div>
             </div>
         </div>
@@ -198,54 +110,45 @@
     {% endif %}
 </div>
 
-{% if caja %}
+<!-- Script directo en el contenido -->
 <script>
     // Variables globales
     let productos = [];
     let total = 0;
     
-    // Agregar producto al carrito
-    $(document).on('click', '.agregarProducto', function() {
-        const id = $(this).data('id');
-        const nombre = $(this).data('nombre');
-        const precio = parseFloat($(this).data('precio'));
-        const stock = parseFloat($(this).data('stock'));
+    // Función para agregar producto manualmente
+    function agregarProductoManual(id, nombre, precio, stock) {
+        console.log("Función agregarProductoManual llamada:", id, nombre, precio, stock);
         
         // Verificar si ya existe en el carrito
         let existe = false;
-        let cantidad = 1;
         
-        productos.forEach(function(item) {
-            if (item.id === id) {
+        for (let i = 0; i < productos.length; i++) {
+            if (productos[i].id === id) {
                 existe = true;
-                if (item.cantidad < stock) {
-                    item.cantidad++;
-                    item.subtotal = item.cantidad * precio;
+                if (productos[i].cantidad < stock) {
+                    productos[i].cantidad++;
+                    productos[i].subtotal = productos[i].cantidad * precio;
                 } else {
-                    alert('No hay suficiente stock disponible');
+                    console.log('No hay suficiente stock disponible');
                 }
+                break;
             }
-        });
+        }
         
         if (!existe) {
             productos.push({
                 id: id,
                 nombre: nombre,
                 precio: precio,
-                cantidad: cantidad,
-                subtotal: precio * cantidad
+                cantidad: 1,
+                subtotal: precio
             });
+            console.log("Producto agregado:", nombre);
         }
         
         actualizarCarrito();
-    });
-    
-    // Eliminar producto del carrito
-    $(document).on('click', '.eliminarProducto', function() {
-        const index = $(this).data('index');
-        productos.splice(index, 1);
-        actualizarCarrito();
-    });
+    }
     
     // Actualizar carrito
     function actualizarCarrito() {
@@ -253,15 +156,26 @@
         let inputsHidden = '';
         total = 0;
         
-        productos.forEach(function(item, index) {
+        console.log("Actualizando carrito con", productos.length, "productos");
+        
+        for (let i = 0; i < productos.length; i++) {
+            let item = productos[i];
             html += `
-                <tr>
+                <tr data-index="${i}">
                     <td>${item.nombre}</td>
-                    <td>${item.cantidad}</td>
-                    <td>$${item.precio.toFixed(2)}</td>
-                    <td>$${item.subtotal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${i}, -1)">➖</button>
+                            <input type="number" value="${item.cantidad}" min="1" class="form-control form-control-sm text-center mx-1" style="width: 60px;" onchange="actualizarCantidadManual(this, ${i})">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${i}, 1)">➕</button>
+                        </div>
+                    </td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-danger eliminarProducto" data-index="${index}">
+                        <input type="number" value="${item.precio.toFixed(2)}" min="0" class="form-control form-control-sm precio-input" onchange="actualizarPrecio(this, ${i})">
+                    </td>
+                    <td class="text-right subtotal">$${item.subtotal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarProducto(${i})">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -271,114 +185,92 @@
             inputsHidden += `
                 <input type="hidden" name="productos_ids" value="${item.id}">
                 <input type="hidden" name="cantidades" value="${item.cantidad}">
+                <input type="hidden" name="precios" value="${item.precio}">
             `;
             
             total += item.subtotal;
-        });
+        }
         
-        $('#tablaCarrito tbody').html(html);
-        $('#totalVenta').text('$' + total.toFixed(2));
-        $('#productosSeleccionados').html(inputsHidden);
+        document.querySelector('#tablaCarrito tbody').innerHTML = html;
+        document.getElementById('totalVenta').textContent = '$' + total.toFixed(2);
+        document.getElementById('productosSeleccionados').innerHTML = inputsHidden;
         
         // Habilitar/deshabilitar botón finalizar
-        if (productos.length > 0) {
-            $('#btnFinalizarVenta').prop('disabled', false);
-            // Actualizar el monto efectivo por defecto
-            $('#monto_efectivo').val(total.toFixed(2));
-            $('#monto_qr').val('0.00');
-            $('#monto_transferencia').val('0.00');
-        } else {
-            $('#btnFinalizarVenta').prop('disabled', true);
-            $('#monto_efectivo').val('0.00');
-            $('#monto_qr').val('0.00');
-            $('#monto_transferencia').val('0.00');
-        }
-        
-        validarMontos();
+        document.getElementById('btnFinalizarVenta').disabled = (productos.length === 0);
     }
     
-    // Validar que los montos de pago sumen el total
-    $('.metodo-pago').on('input', function() {
-        validarMontos();
-    });
-    
-    function validarMontos() {
-        const efectivo = parseFloat($('#monto_efectivo').val()) || 0;
-        const qr = parseFloat($('#monto_qr').val()) || 0;
-        const transferencia = parseFloat($('#monto_transferencia').val()) || 0;
-        
-        const totalMetodos = efectivo + qr + transferencia;
-        
-        if (Math.abs(totalMetodos - total) < 0.01) {
-            $('#alertaPago').hide();
-            $('#btnFinalizarVenta').prop('disabled', false);
-        } else {
-            $('#alertaPago').show();
-            $('#btnFinalizarVenta').prop('disabled', true);
-        }
-    }
-    
-    // Buscar productos
-    $('#buscarProducto').on('keyup', function() {
-        const valor = $(this).val().toLowerCase();
-        $('#tablaProductos tbody tr').filter(function() {
-            $(this).toggle($(this).text().toLowerCase().indexOf(valor) > -1);
-        });
-    });
-    
-    // Validar formulario antes de enviar
-    $('#formVenta').on('submit', function(e) {
-        if (productos.length === 0) {
-            e.preventDefault();
-            alert('Debe agregar al menos un producto a la venta');
-            return false;
-        }
-        
-        const medioPago = $('#medio_pago_id').val();
-        if (!medioPago) {
-            e.preventDefault();
-            alert('Debe seleccionar un medio de pago');
-            return false;
-        }
-        
-        const efectivo = parseFloat($('#monto_efectivo').val()) || 0;
-        const qr = parseFloat($('#monto_qr').val()) || 0;
-        const transferencia = parseFloat($('#monto_transferencia').val()) || 0;
-
-        const totalMetodos = efectivo + qr + transferencia;
-
-        if (Math.abs(totalMetodos - total) >= 0.01) {
-            e.preventDefault();
-            alert('La suma de los montos por método de pago debe ser igual al total de la venta');
-            return false;
-        }
-
-        return true;
-    });
-
-    $('#medio_pago_id').on('change', function() {
-        const medioPagoId = $(this).val();
-        // Resetear todos los montos
-        $('#monto_efectivo').val('0.00');
-        $('#monto_qr').val('0.00');
-        $('#monto_transferencia').val('0.00');
-
-        // Obtener el tipo de medio de pago
-        $.ajax({
-            url: '/get-medio-pago-info/',
-            data: { id: medioPagoId },
-            success: function(data) {
-                // Asignar el monto total al campo correspondiente
-                if (data.tipo === 'EFECTIVO') {
-                    $('#monto_efectivo').val(total.toFixed(2));
-                } else if (data.tipo === 'QR') {
-                    $('#monto_qr').val(total.toFixed(2));
-                } else if (data.tipo === 'TRANSFERENCIA') {
-                    $('#monto_transferencia').val(total.toFixed(2));
-                }
+    // Modificar cantidad
+    function modificarCantidad(index, cambio) {
+        if (index >= 0 && index < productos.length) {
+            let nuevaCantidad = productos[index].cantidad + cambio;
+            if (nuevaCantidad > 0) {
+                productos[index].cantidad = nuevaCantidad;
+                productos[index].subtotal = productos[index].cantidad * productos[index].precio;
+                actualizarCarrito();
             }
+        }
+    }
+    
+    // Actualizar cantidad manualmente
+    function actualizarCantidadManual(input, index) {
+        const nuevaCantidad = parseInt(input.value);
+        if (nuevaCantidad > 0 && index >= 0 && index < productos.length) {
+            productos[index].cantidad = nuevaCantidad;
+            productos[index].subtotal = productos[index].cantidad * productos[index].precio;
+            actualizarCarrito();
+        }
+    }
+    
+    // Actualizar precio
+    function actualizarPrecio(input, index) {
+        const nuevoPrecio = parseFloat(input.value);
+        if (nuevoPrecio >= 0 && index >= 0 && index < productos.length) {
+            productos[index].precio = nuevoPrecio;
+            productos[index].subtotal = productos[index].cantidad * productos[index].precio;
+            actualizarCarrito();
+        }
+    }
+    
+    // Eliminar producto
+    function eliminarProducto(index) {
+        if (index >= 0 && index < productos.length) {
+            productos.splice(index, 1);
+            actualizarCarrito();
+        }
+    }
+    
+    // Cuando el documento esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Documento listo (JavaScript puro)");
+        
+        // Buscar productos en tiempo real
+        document.getElementById('buscarProducto').addEventListener('keyup', function() {
+            const valor = this.value.toLowerCase();
+            console.log("Buscando:", valor);
+            
+            const items = document.querySelectorAll('#lista-productos .producto-item');
+            items.forEach(function(item) {
+                const texto = item.textContent.toLowerCase();
+                item.style.display = texto.includes(valor) ? '' : 'none';
+            });
+        });
+        
+        // Finalizar venta
+        document.getElementById('btnFinalizarVenta').addEventListener('click', function() {
+            if (productos.length === 0) {
+                alert('Debe agregar al menos un producto a la venta');
+                return;
+            }
+            
+            const medioPago = document.getElementById('medio_pago_id').value;
+            if (!medioPago) {
+                alert('Debe seleccionar un medio de pago');
+                return;
+            }
+            
+            document.getElementById('formVenta').submit();
         });
     });
 </script>
-{% endif %}
+
 {% endblock %}

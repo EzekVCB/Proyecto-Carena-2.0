@@ -1,5 +1,5 @@
 from django import forms
-from .models import Proveedor, Cliente, Producto, Categoria, Venta  # Asegúrate de importar todos los modelos necesarios
+from .models import Proveedor, Cliente, Producto, Categoria, Venta, PagoVenta  # Asegúrate de importar todos los modelos necesarios
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -148,13 +148,8 @@ class EditCategoriaForm(forms.ModelForm):
 class VentaForm(forms.ModelForm):
     class Meta:
         model = Venta
-        fields = ['Cliente', 'MedioDePago', 'NumeroComprobate', 'ImporteTotal']
-        labels = {
-            'Cliente': 'Cliente',
-            'MedioDePago': 'Medio de Pago',
-            'NumeroComprobate': 'Número de Comprobante',
-            'ImporteTotal': 'Importe Total',
-        }
+        fields = ['Cliente', 'ImporteTotal', 'Caja', 'Cajero']
+        # Asegúrate de que MedioDePago no esté aquí
 
 class LoginForm(forms.Form):
     username = forms.CharField(
@@ -216,3 +211,8 @@ class RegisterForm(UserCreationForm):
         })
         self.fields['password2'].label = ""
         self.fields['password2'].help_text = "Ingresa la misma contraseña para verificar"
+
+class PagoVentaForm(forms.ModelForm):
+    class Meta:
+        model = PagoVenta
+        fields = ['MedioDePago', 'Monto', 'DatosAdicionales']

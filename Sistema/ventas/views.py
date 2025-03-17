@@ -17,6 +17,7 @@ from django.contrib.auth import authenticate, login as auth_login, logout as aut
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 
 # Create your views here.
 
@@ -272,105 +273,143 @@ def delete_categoria_view(request):
 @login_required
 def ventas_view(request):
     # Verificar si hay una caja abierta para este usuario
-    caja_abierta = Caja.objects.filter(cajero=request.user, estado='ABIERTA').first()
+    caja_abierta = Caja.objects.filter(Cajero=request.user, Estado='ABIERTA').first()
     
-    if not caja_abierta:
-        messages.warning(request, "Debes abrir una caja antes de realizar ventas.")
-        return redirect('caja')
-    
-    # Obtener datos para el formulario
-    productos = Producto.objects.all()
-    clientes = Cliente.objects.all()
-    medios_pago = MedioDePago.objects.all()
-    
-    if request.method == 'POST':
-        # Procesar la venta
+    if request.method == 'POST' and caja_abierta:
         try:
             # Obtener datos del formulario
             cliente_id = request.POST.get('cliente_id')
-            medio_pago_id = request.POST.get('medio_pago_id')
             productos_ids = request.POST.getlist('productos_ids')
             cantidades = request.POST.getlist('cantidades')
+            medio_pago_id = request.POST.get('medio_pago_id')
             
             # Montos por método de pago
             monto_efectivo = float(request.POST.get('monto_efectivo', 0))
             monto_qr = float(request.POST.get('monto_qr', 0))
             monto_transferencia = float(request.POST.get('monto_transferencia', 0))
             
-            # Calcular importe total
-            importe_total = monto_efectivo + monto_qr + monto_transferencia
+            # Validar que hay productos
+            if not productos_ids:
+                messages.error(request, 'Debe agregar al menos un producto a la venta')
+                return redirect('ventas')
             
-            # Generar número de comprobante (puedes personalizar esto)
-            ultimo_numero = Venta.objects.all().order_by('-id').first()
-            if ultimo_numero:
-                numero_comprobante = f"{int(ultimo_numero.NumeroComprobate) + 1:010d}"
-            else:
-                numero_comprobante = "0000000001"
-            
-            # Crear la venta
-            venta = Venta(
-                NumeroComprobate=numero_comprobante,
-                Cliente_id=cliente_id if cliente_id else None,
-                MedioDePago_id=medio_pago_id,
-                ImporteTotal=importe_total,
-                caja=caja_abierta,
-                cajero=request.user,
-                monto_efectivo=monto_efectivo,
-                monto_qr=monto_qr,
-                monto_transferencia=monto_transferencia
-            )
-            venta.save()
-            
-            # Crear los detalles de venta
-            for i, producto_id in enumerate(productos_ids):
-                cantidad = int(cantidades[i])
-                producto = Producto.objects.get(id=producto_id)
+            # Crear todo en una transacción
+            with transaction.atomic():
+                # 1. Crear la venta (sin guardar aún)
+                venta = Venta()
+                venta.Fecha = timezone.now()
+                venta.Caja = caja_abierta
+                venta.Usuario = request.user
+                venta.Cajero = request.user
                 
-                # Verificar stock
-                if producto.Cantidad < cantidad:
-                    raise ValidationError(f"Stock insuficiente para {producto.Nombre}")
+                # Asignar cliente si se seleccionó uno
+                if cliente_id:
+                    venta.Cliente = Cliente.objects.get(id=cliente_id)
                 
-                # Crear detalle
-                DetalleVenta.objects.create(
-                    Venta=venta,
-                    Producto=producto,
-                    Cantidad=cantidad,
-                    PrecioUnitario=producto.PrecioDeContado,
-                    Subtotal=producto.PrecioDeContado * cantidad
-                )
+                # Generar número de comprobante
+                ultimo_comprobante = Venta.objects.order_by('-id').first()
+                if ultimo_comprobante:
+                    ultimo_numero = int(ultimo_comprobante.NumeroComprobate.split('-')[-1])
+                    nuevo_numero = ultimo_numero + 1
+                else:
+                    nuevo_numero = 1
                 
-                # Actualizar stock
-                producto.Cantidad -= cantidad
-                producto.save()
-            
-            # Crear movimiento de caja automáticamente
-            MovimientoCaja.objects.create(
-                caja=caja_abierta,
-                tipo_movimiento='INGRESO',
-                venta=venta,
-                monto_total=importe_total,
-                monto_efectivo=monto_efectivo,
-                monto_qr=monto_qr,
-                monto_transferencia=monto_transferencia,
-                descripcion=f"Venta #{numero_comprobante}",
-                cajero=request.user
-            )
-            
-            messages.success(request, f"Venta #{numero_comprobante} registrada exitosamente.")
-            return redirect('ventas')
-            
-        except ValidationError as e:
-            messages.error(request, str(e))
-            return redirect('ventas')
+                venta.NumeroComprobate = f"00001-{nuevo_numero:05d}"
+                
+                # Calcular el total de la venta
+                total_venta = 0
+                detalles_temp = []  # Almacenar detalles temporalmente
+                
+                # 2. Preparar los detalles de productos (sin guardar aún)
+                for i in range(len(productos_ids)):
+                    producto_id = productos_ids[i]
+                    cantidad = int(cantidades[i])
+                    
+                    producto = Producto.objects.get(id=producto_id)
+                    
+                    # Verificar stock
+                    if producto.Cantidad < cantidad:
+                        raise Exception(f"No hay suficiente stock para {producto.Nombre}")
+                    
+                    # Crear detalle (sin guardar aún)
+                    detalle = DetalleVenta(
+                        Producto=producto,
+                        Cantidad=cantidad,
+                        PrecioUnitario=producto.PrecioDeContado,
+                        Subtotal=producto.PrecioDeContado * cantidad
+                    )
+                    detalles_temp.append((detalle, producto))
+                    
+                    # Sumar al total
+                    total_venta += detalle.Subtotal
+                
+                # Asignar el total calculado
+                venta.ImporteTotal = total_venta
+                
+                # 3. AHORA guardamos la venta
+                venta.save()
+                
+                # 4. Guardar los detalles y actualizar stock
+                for detalle, producto in detalles_temp:
+                    detalle.Venta = venta
+                    detalle.save()
+                    
+                    # Actualizar stock
+                    producto.Cantidad -= detalle.Cantidad
+                    producto.save()
+                
+                # 5. Registrar los pagos
+                if monto_efectivo > 0:
+                    medio_efectivo = MedioDePago.objects.get(Tipo='EFECTIVO')
+                    PagoVenta.objects.create(
+                        Venta=venta,
+                        MedioDePago=medio_efectivo,
+                        Monto=monto_efectivo,
+                        Fecha=timezone.now()
+                    )
+                
+                if monto_qr > 0:
+                    medio_qr = MedioDePago.objects.get(Tipo='QR')
+                    PagoVenta.objects.create(
+                        Venta=venta,
+                        MedioDePago=medio_qr,
+                        Monto=monto_qr,
+                        Fecha=timezone.now()
+                    )
+                
+                if monto_transferencia > 0:
+                    medio_transf = MedioDePago.objects.get(Tipo='TRANSFERENCIA')
+                    PagoVenta.objects.create(
+                        Venta=venta,
+                        MedioDePago=medio_transf,
+                        Monto=monto_transferencia,
+                        Fecha=timezone.now()
+                    )
+                
+                # El movimiento de caja se creará automáticamente al guardar la venta
+                
+                messages.success(request, f'Venta #{venta.NumeroComprobate} registrada exitosamente')
+                return redirect(f'ventas?venta_exitosa={venta.NumeroComprobate}')
+                
         except Exception as e:
-            messages.error(request, f"Error al procesar la venta: {str(e)}")
+            print(f"ERROR GENERAL: {str(e)}")
+            messages.error(request, f'Error al procesar la venta: {str(e)}')
+            return redirect('ventas')
     
+    # Obtener datos para la vista
     context = {
-        'caja': caja_abierta,
-        'productos': productos,
-        'clientes': clientes,
-        'medios_pago': medios_pago
+        'caja': caja_abierta
     }
+    
+    if caja_abierta:
+        # Obtener productos con stock
+        context['productos'] = Producto.objects.filter(Cantidad__gt=0).order_by('Nombre')
+        
+        # Obtener clientes
+        context['clientes'] = Cliente.objects.all().order_by('Nombre')
+        
+        # Obtener medios de pago
+        context['medios_pago'] = MedioDePago.objects.all()
     
     return render(request, 'ventas.html', context)
 
@@ -439,98 +478,99 @@ def get_medio_pago_info(request):
 
 @login_required
 def caja_view(request):
-    # Verificar si el usuario tiene una caja abierta
-    caja_abierta = Caja.objects.filter(cajero=request.user, estado='ABIERTA').first()
-
-    # Inicializar variables de contexto
-    context = {
-        'caja': caja_abierta,
-        'total_ventas': 0,
-        'saldo_esperado': 0,
-        'movimientos': [],
-    }
-
-    if caja_abierta:
-        # Obtener movimientos de la caja
-        movimientos = caja_abierta.movimientos.all().order_by('-fecha')
-
-        # Calcular total de ventas (suma de monto_total)
-        total_ventas = movimientos.aggregate(total=Sum('monto_total'))['total'] or 0
-
-        # Calcular saldo esperado (saldo inicial + ventas)
-        # Asumimos que todas las ventas son en efectivo para este cálculo
-        saldo_esperado = caja_abierta.saldo_inicial + total_ventas
-
-        # Actualizar contexto
-        context.update({
-            'movimientos': movimientos,
-            'total_ventas': total_ventas,
-            'saldo_esperado': saldo_esperado,
-        })
-
+    # Verificar si hay una caja abierta para este usuario
+    caja_abierta = Caja.objects.filter(Cajero=request.user, Estado='ABIERTA').first()
+    
     if request.method == 'POST':
-        if 'abrir_caja' in request.POST:
+        accion = request.POST.get('accion')
+        
+        if accion == 'abrir':
+            # Verificar que no haya otra caja abierta
+            if caja_abierta:
+                messages.warning(request, "Ya tienes una caja abierta.")
+                return redirect('caja')
+            
+            # Abrir nueva caja
+            saldo_inicial = request.POST.get('saldo_inicial')
             try:
-                saldo_inicial = request.POST.get('saldo_inicial')
-                if not saldo_inicial:
-                    messages.error(request, "Debes ingresar un saldo inicial.")
-                    return redirect('caja')
-
-                # Convertir a float para validar
-                saldo_inicial = float(saldo_inicial)
-
-                # Crear nueva caja
-                nueva_caja = Caja.objects.create(
-                    cajero=request.user,
-                    saldo_inicial=saldo_inicial,
-                    estado='ABIERTA'
+                saldo_inicial = decimal.Decimal(saldo_inicial)
+                if saldo_inicial < 0:
+                    raise ValueError("El saldo inicial no puede ser negativo")
+                
+                caja = Caja.objects.create(
+                    Cajero=request.user,
+                    SaldoInicial=saldo_inicial,
+                    Estado='ABIERTA'
                 )
-
-                messages.success(request, f"Caja #{nueva_caja.id} abierta exitosamente.")
+                messages.success(request, f"Caja #{caja.id} abierta correctamente.")
                 return redirect('caja')
-
             except Exception as e:
-                messages.error(request, f"Error al abrir la caja: {str(e)}")
-                return redirect('caja')
-
-        elif 'cerrar_caja' in request.POST:
+                messages.error(request, f"Error al abrir caja: {str(e)}")
+        
+        elif accion == 'cerrar':
+            # Verificar que haya una caja abierta
             if not caja_abierta:
-                messages.error(request, "No tienes una caja abierta para cerrar.")
+                messages.warning(request, "No tienes una caja abierta para cerrar.")
                 return redirect('caja')
-
-            # Verificar que haya ventas en la caja
-            if not caja_abierta.movimientos.exists():
-                messages.error(request, "No puedes cerrar la caja sin haber realizado ventas.")
-                return redirect('caja')
-
+            
+            # Cerrar caja
+            saldo_final_real = request.POST.get('saldo_final_real')
+            observaciones = request.POST.get('observaciones', '')
+            
             try:
-                saldo_final_real = request.POST.get('saldo_final_real')
-                observaciones = request.POST.get('observaciones', '')
-
-                if not saldo_final_real:
-                    messages.error(request, "Debes ingresar el saldo final real.")
-                    return redirect('caja')
-
-                # Asegurarse de que saldo_final_real sea un número válido
-                try:
-                    saldo_final_real = float(saldo_final_real)
-                except ValueError:
-                    messages.error(request, "El saldo final debe ser un número válido.")
-                    return redirect('caja')
-
-                # Cerrar la caja
-                caja_abierta.cerrar_caja(
-                    saldo_final_real=saldo_final_real,
-                    observaciones=observaciones
-                )
-
-                messages.success(request, f"Caja #{caja_abierta.id} cerrada exitosamente.")
-                return redirect('index')  # Redirigir al dashboard
-
-            except Exception as e:
-                messages.error(request, f"Error al cerrar la caja: {str(e)}")
+                saldo_final_real = decimal.Decimal(saldo_final_real)
+                if saldo_final_real < 0:
+                    raise ValueError("El saldo final no puede ser negativo")
+                
+                caja_abierta.CerrarCaja(saldo_final_real, observaciones)
+                messages.success(request, f"Caja #{caja_abierta.id} cerrada correctamente.")
                 return redirect('caja')
-
+            except Exception as e:
+                messages.error(request, f"Error al cerrar caja: {str(e)}")
+    
+    # Obtener datos para la vista
+    if caja_abierta:
+        # Calcular totales
+        total_efectivo = caja_abierta.GetTotalEfectivo()
+        
+        # Debug - imprimir valores
+        print(f"DEBUG - Saldo Inicial: {caja_abierta.SaldoInicial}")
+        print(f"DEBUG - Total Efectivo: {total_efectivo}")
+        print(f"DEBUG - Saldo Esperado: {float(caja_abierta.SaldoInicial) + float(total_efectivo)}")
+        
+        total_qr = caja_abierta.GetTotalQR()
+        total_transferencia = caja_abierta.GetTotalTransferencia()
+        total_tarjeta_credito = caja_abierta.GetTotalTarjetaCredito()
+        total_tarjeta_debito = caja_abierta.GetTotalTarjetaDebito()
+        
+        # Calcular saldo esperado en efectivo (saldo inicial + ventas en efectivo)
+        saldo_esperado = float(caja_abierta.SaldoInicial) + float(total_efectivo)
+        
+        # Obtener las ventas asociadas a esta caja
+        ventas = Venta.objects.filter(Caja=caja_abierta).order_by('-Fecha')
+        
+        # Obtener los movimientos de caja
+        movimientos = MovimientoCaja.objects.filter(Caja=caja_abierta).order_by('-Fecha')
+        
+        # Agregar total de ventas al contexto
+        total_ventas = caja_abierta.GetTotalVentas()
+        
+        context = {
+            'caja': caja_abierta,
+            'total_efectivo': total_efectivo,
+            'total_qr': total_qr,
+            'total_transferencia': total_transferencia,
+            'total_tarjeta_credito': total_tarjeta_credito,
+            'total_tarjeta_debito': total_tarjeta_debito,
+            'saldo_esperado': saldo_esperado,
+            'resumen_por_medio': caja_abierta.GetResumenPorMedioPago(),
+            'ventas': ventas,
+            'movimientos': movimientos,
+            'total_ventas': total_ventas
+        }
+    else:
+        context = {}
+    
     return render(request, 'caja.html', context)
 
 @staff_member_required
@@ -546,22 +586,22 @@ def historial_cajas_view(request):
     
     # Aplicar filtros
     if fecha_inicio:
-        cajas = cajas.filter(fecha_apertura__date__gte=fecha_inicio)
+        cajas = cajas.filter(FechaApertura__date__gte=fecha_inicio)
     
     if fecha_fin:
-        cajas = cajas.filter(fecha_apertura__date__lte=fecha_fin)
+        cajas = cajas.filter(FechaApertura__date__lte=fecha_fin)
     
     if cajero_id:
-        cajas = cajas.filter(cajero_id=cajero_id)
+        cajas = cajas.filter(Cajero_id=cajero_id)
     
     if estado:
-        cajas = cajas.filter(estado=estado)
+        cajas = cajas.filter(Estado=estado)
     
     # Ordenar por fecha de apertura descendente
-    cajas = cajas.order_by('-fecha_apertura')
+    cajas = cajas.order_by('-FechaApertura')
     
     # Obtener lista de cajeros para el filtro
-    cajeros = User.objects.filter(cajas__isnull=False).distinct()
+    cajeros = User.objects.filter(is_staff=True)
     
     context = {
         'cajas': cajas,
@@ -573,8 +613,47 @@ def historial_cajas_view(request):
             'estado': estado
         }
     }
-    
+
     return render(request, 'historial_cajas.html', context)
+
+@staff_member_required
+def detalle_caja_view(request, caja_id):
+    """Vista para mostrar el detalle de una caja específica (para AJAX)"""
+    try:
+        caja = Caja.objects.get(id=caja_id)
+        
+        # Obtener ventas asociadas a esta caja
+        ventas = Venta.objects.filter(Caja=caja).order_by('-Fecha')
+        
+        # Obtener movimientos de caja
+        movimientos = MovimientoCaja.objects.filter(Caja=caja).order_by('-Fecha')
+        
+        # Calcular totales
+        total_efectivo = caja.GetTotalEfectivo()
+        total_qr = caja.GetTotalQR()
+        total_transferencia = caja.GetTotalTransferencia()
+        total_tarjeta_credito = caja.GetTotalTarjetaCredito()
+        total_tarjeta_debito = caja.GetTotalTarjetaDebito()
+        
+        # Calcular saldo esperado en efectivo (saldo inicial + ventas en efectivo)
+        saldo_esperado = caja.SaldoInicial + total_efectivo
+        
+        context = {
+            'caja': caja,
+            'ventas': ventas,
+            'movimientos': movimientos,
+            'total_efectivo': total_efectivo,
+            'total_qr': total_qr,
+            'total_transferencia': total_transferencia,
+            'total_tarjeta_credito': total_tarjeta_credito,
+            'total_tarjeta_debito': total_tarjeta_debito,
+            'saldo_esperado': saldo_esperado,
+            'resumen_por_medio': caja.GetResumenPorMedioPago(),
+        }
+        
+        return render(request, 'detalle_caja_ajax.html', context)
+    except Caja.DoesNotExist:
+        return HttpResponse('<div class="alert alert-danger">La caja solicitada no existe</div>')
 
 
 

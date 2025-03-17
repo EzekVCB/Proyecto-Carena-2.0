@@ -28,4 +28,5 @@ urlpatterns = [
     path('caja/', views.caja_view, name='caja'),
     path('ventas/', views.ventas_view, name='ventas'),
     path('historial-cajas/', views.historial_cajas_view, name='historial_cajas'),
+    path('detalle-caja/<int:caja_id>/', views.detalle_caja_view, name='detalle_caja'),
 ]

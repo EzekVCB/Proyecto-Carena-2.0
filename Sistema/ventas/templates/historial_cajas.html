@@ -107,31 +107,31 @@
                                 {% for caja in cajas %}
                                 <tr>
                                     <td>{{ caja.id }}</td>
-                                    <td>{{ caja.cajero.get_full_name|default:caja.cajero.username }}</td>
-                                    <td>{{ caja.fecha_apertura|date:"d/m/Y H:i" }}</td>
-                                    <td>{% if caja.fecha_cierre %}{{ caja.fecha_cierre|date:"d/m/Y H:i" }}{% else %}-{% endif %}</td>
-                                    <td>${{ caja.saldo_inicial|floatformat:2 }}</td>
-                                    <td>{% if caja.saldo_final_sistema %}${{ caja.saldo_final_sistema|floatformat:2 }}{% else %}-{% endif %}</td>
-                                    <td>{% if caja.saldo_final_real %}${{ caja.saldo_final_real|floatformat:2 }}{% else %}-{% endif %}</td>
+                                    <td>{{ caja.Cajero.get_full_name|default:caja.Cajero.username }}</td>
+                                    <td>{{ caja.FechaApertura|date:"d/m/Y H:i" }}</td>
+                                    <td>{% if caja.FechaCierre %}{{ caja.FechaCierre|date:"d/m/Y H:i" }}{% else %}-{% endif %}</td>
+                                    <td>${{ caja.SaldoInicial|floatformat:2 }}</td>
+                                    <td>{% if caja.SaldoFinalSistema %}${{ caja.SaldoFinalSistema|floatformat:2 }}{% else %}-{% endif %}</td>
+                                    <td>{% if caja.SaldoFinalReal %}${{ caja.SaldoFinalReal|floatformat:2 }}{% else %}-{% endif %}</td>
                                     <td>
-                                        {% if caja.diferencia %}
-                                            <span class="badge {% if caja.diferencia < 0 %}badge-danger{% elif caja.diferencia > 0 %}badge-warning{% else %}badge-success{% endif %}">
-                                                ${{ caja.diferencia|floatformat:2 }}
+                                        {% if caja.Diferencia %}
+                                            <span class="badge {% if caja.Diferencia < 0 %}badge-danger{% elif caja.Diferencia > 0 %}badge-warning{% else %}badge-success{% endif %}">
+                                                ${{ caja.Diferencia|floatformat:2 }}
                                             </span>
                                         {% else %}
                                             -
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <span class="badge {% if caja.estado == 'ABIERTA' %}badge-success{% else %}badge-secondary{% endif %}">
-                                            {{ caja.estado }}
+                                        <span class="badge {% if caja.Estado == 'ABIERTA' %}badge-success{% else %}badge-secondary{% endif %}">
+                                            {{ caja.Estado }}
                                         </span>
                                     </td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-info verDetalle" data-id="{{ caja.id }}">
                                             <i class="fas fa-eye"></i> Ver Detalle
                                         </button>
-                                        {% if caja.estado == 'ABIERTA' and request.user.is_superuser %}
+                                        {% if caja.Estado == 'ABIERTA' and request.user.is_superuser %}
                                         <button type="button" class="btn btn-sm btn-danger forzarCierre" data-id="{{ caja.id }}">
                                             <i class="fas fa-lock"></i> Forzar Cierre
                                         </button>
@@ -187,11 +187,9 @@
         const id = $(this).data('id');
         $('#modalDetalle').modal('show');
         
-        // Aquí iría la lógica para cargar el detalle mediante AJAX
-        // Por ejemplo:
-        /*
+        // Usar la URL generada por Django
         $.ajax({
-            url: '/cajas/detalle/' + id + '/',
+            url: "{% url 'detalle_caja' 0 %}".replace('0', id),
             type: 'GET',
             success: function(data) {
                 $('#detalleContenido').html(data);
@@ -200,7 +198,6 @@
                 $('#detalleContenido').html('<div class="alert alert-danger">Error al cargar los datos</div>');
             }
         });
-        */
     });
     
     // Forzar cierre de caja (solo admin)
@@ -209,10 +206,8 @@
             const id = $(this).data('id');
             
             // Aquí iría la lógica para forzar el cierre mediante AJAX
-            // Por ejemplo:
-            /*
             $.ajax({
-                url: '/cajas/forzar_cierre/' + id + '/',
+                url: '/forzar-cierre-caja/' + id + '/',
                 type: 'POST',
                 data: {
                     csrfmiddlewaretoken: '{{ csrf_token }}'
@@ -229,7 +224,6 @@
                     alert('Error al procesar la solicitud');
                 }
             });
-            */
         }
     });
     
