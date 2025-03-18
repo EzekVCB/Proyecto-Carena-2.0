@@ -18,6 +18,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.views.decorators.csrf import csrf_exempt
+import json
+from django.urls import reverse
 
 # Create your views here.
 
@@ -43,8 +46,9 @@ def contar_productos_bajos_stock():
     Cuenta cuántos productos están por debajo de su cantidad mínima sugerida.
     Retorna el número de productos que necesitan reposición.
     """
+    # Usar el método de filtrado directo en la base de datos
     productos_bajos = Producto.objects.filter(
-        Cantidad__lte=10  # Por ahora usamos un valor fijo de 10 como mínimo
+        Cantidad__lte=models.F('CantidadMinimaSugerida')
     ).count()
 
     return productos_bajos
@@ -54,8 +58,9 @@ def obtener_productos_stock_bajo():
     Obtiene la lista de productos con stock bajo para mostrar en el dashboard.
     Retorna los 5 productos más críticos en términos de stock.
     """
+    # Usar el método de filtrado directo en la base de datos
     productos = Producto.objects.filter(
-        Cantidad__lte=10  # Mismo criterio que arriba
+        Cantidad__lte=models.F('CantidadMinimaSugerida')
     ).order_by('Cantidad')[:5]  # Ordenamos por cantidad ascendente
 
     return productos
@@ -276,17 +281,26 @@ def ventas_view(request):
     caja_abierta = Caja.objects.filter(Cajero=request.user, Estado='ABIERTA').first()
     
     if request.method == 'POST' and caja_abierta:
+        print("\n=== INICIO PROCESAMIENTO VENTA ===")
+        print(f"Usuario: {request.user.username}")
+        print(f"Datos POST: {request.POST}")
+        
         try:
             # Obtener datos del formulario
             cliente_id = request.POST.get('cliente_id')
             productos_ids = request.POST.getlist('productos_ids')
             cantidades = request.POST.getlist('cantidades')
-            medio_pago_id = request.POST.get('medio_pago_id')
+            precios = request.POST.getlist('precios')
+            medio_pago_principal_id = request.POST.get('medio_pago_principal')
+            monto_principal = request.POST.get('monto_principal')
+            medio_pago_secundario_id = request.POST.get('medio_pago_secundario')
+            monto_secundario = request.POST.get('monto_secundario')
+            fecha_comprobante = request.POST.get('fecha_comprobante')
+            tipo_ticket = request.POST.get('imprimir_ticket', 'no')
             
-            # Montos por método de pago
-            monto_efectivo = float(request.POST.get('monto_efectivo', 0))
-            monto_qr = float(request.POST.get('monto_qr', 0))
-            monto_transferencia = float(request.POST.get('monto_transferencia', 0))
+            print(f"Productos IDs: {productos_ids}")
+            print(f"Cantidades: {cantidades}")
+            print(f"Precios: {precios}")
             
             # Validar que hay productos
             if not productos_ids:
@@ -297,7 +311,17 @@ def ventas_view(request):
             with transaction.atomic():
                 # 1. Crear la venta (sin guardar aún)
                 venta = Venta()
-                venta.Fecha = timezone.now()
+                
+                # Usar la fecha del comprobante si se proporciona
+                if fecha_comprobante:
+                    try:
+                        fecha_dt = datetime.strptime(fecha_comprobante, '%Y-%m-%d')
+                        venta.Fecha = make_aware(fecha_dt)
+                    except:
+                        venta.Fecha = timezone.now()
+                else:
+                    venta.Fecha = timezone.now()
+                
                 venta.Caja = caja_abierta
                 venta.Usuario = request.user
                 venta.Cajero = request.user
@@ -314,16 +338,19 @@ def ventas_view(request):
                 else:
                     nuevo_numero = 1
                 
-                venta.NumeroComprobate = f"00001-{nuevo_numero:05d}"
+                # Agregar prefijo según tipo de ticket
+                prefijo = "F" if tipo_ticket == "fiscal" else "N"
+                venta.NumeroComprobate = f"{prefijo}-{nuevo_numero:05d}"
                 
                 # Calcular el total de la venta
                 total_venta = 0
-                detalles_temp = []  # Almacenar detalles temporalmente
+                detalles_temp = []
                 
                 # 2. Preparar los detalles de productos (sin guardar aún)
                 for i in range(len(productos_ids)):
                     producto_id = productos_ids[i]
                     cantidad = int(cantidades[i])
+                    precio = float(precios[i])
                     
                     producto = Producto.objects.get(id=producto_id)
                     
@@ -335,8 +362,8 @@ def ventas_view(request):
                     detalle = DetalleVenta(
                         Producto=producto,
                         Cantidad=cantidad,
-                        PrecioUnitario=producto.PrecioDeContado,
-                        Subtotal=producto.PrecioDeContado * cantidad
+                        PrecioUnitario=precio,
+                        Subtotal=precio * cantidad
                     )
                     detalles_temp.append((detalle, producto))
                     
@@ -359,37 +386,57 @@ def ventas_view(request):
                     producto.save()
                 
                 # 5. Registrar los pagos
-                if monto_efectivo > 0:
-                    medio_efectivo = MedioDePago.objects.get(Tipo='EFECTIVO')
-                    PagoVenta.objects.create(
-                        Venta=venta,
-                        MedioDePago=medio_efectivo,
-                        Monto=monto_efectivo,
-                        Fecha=timezone.now()
-                    )
-                
-                if monto_qr > 0:
-                    medio_qr = MedioDePago.objects.get(Tipo='QR')
-                    PagoVenta.objects.create(
-                        Venta=venta,
-                        MedioDePago=medio_qr,
-                        Monto=monto_qr,
-                        Fecha=timezone.now()
-                    )
-                
-                if monto_transferencia > 0:
-                    medio_transf = MedioDePago.objects.get(Tipo='TRANSFERENCIA')
-                    PagoVenta.objects.create(
-                        Venta=venta,
-                        MedioDePago=medio_transf,
-                        Monto=monto_transferencia,
-                        Fecha=timezone.now()
-                    )
+                if medio_pago_principal_id:
+                    try:
+                        medio_pago_principal = MedioDePago.objects.get(id=medio_pago_principal_id)
+                        
+                        # Si no se especificó un monto para el medio principal, usar el total
+                        if not monto_principal or float(monto_principal) <= 0:
+                            monto_principal = total_venta
+                        else:
+                            monto_principal = float(monto_principal)
+                        
+                        # Verificar si hay un segundo medio de pago
+                        if medio_pago_secundario_id and monto_secundario and float(monto_secundario) > 0:
+                            monto_secundario = float(monto_secundario)
+                            
+                            # Validar que la suma de los montos sea igual al total
+                            if abs((monto_principal + monto_secundario) - total_venta) > 0.01:
+                                # Ajustar el monto principal para que sumen exactamente el total
+                                monto_principal = total_venta - monto_secundario
+                            
+                            # Crear el pago con el medio secundario
+                            medio_pago_secundario = MedioDePago.objects.get(id=medio_pago_secundario_id)
+                            PagoVenta.objects.create(
+                                Venta=venta,
+                                MedioDePago=medio_pago_secundario,
+                                Monto=monto_secundario,
+                                Fecha=timezone.now()
+                            )
+                        
+                        # Crear el pago con el medio principal
+                        PagoVenta.objects.create(
+                            Venta=venta,
+                            MedioDePago=medio_pago_principal,
+                            Monto=monto_principal,
+                            Fecha=timezone.now()
+                        )
+                    except Exception as e:
+                        print(f"ERROR AL PROCESAR PAGOS: {str(e)}")
+                        messages.error(request, f'Error al procesar los pagos: {str(e)}')
+                        # Revertir la transacción en caso de error
+                        transaction.set_rollback(True)
+                        return redirect('ventas')
+                else:
+                    messages.error(request, 'Debe seleccionar al menos un medio de pago')
+                    # Revertir la transacción en caso de error
+                    transaction.set_rollback(True)
+                    return redirect('ventas')
                 
                 # El movimiento de caja se creará automáticamente al guardar la venta
                 
                 messages.success(request, f'Venta #{venta.NumeroComprobate} registrada exitosamente')
-                return redirect(f'ventas?venta_exitosa={venta.NumeroComprobate}')
+                return redirect(reverse('ventas') + f'?venta_exitosa={venta.NumeroComprobate}')
                 
         except Exception as e:
             print(f"ERROR GENERAL: {str(e)}")
@@ -398,7 +445,8 @@ def ventas_view(request):
     
     # Obtener datos para la vista
     context = {
-        'caja': caja_abierta
+        'caja': caja_abierta,
+        'today': timezone.now()  # Para establecer la fecha actual en el campo
     }
     
     if caja_abierta:
@@ -410,6 +458,22 @@ def ventas_view(request):
         
         # Obtener medios de pago
         context['medios_pago'] = MedioDePago.objects.all()
+        
+        # Buscar el medio de pago "Efectivo"
+        try:
+            medio_efectivo = MedioDePago.objects.filter(Nombre__icontains='efectivo').first()
+            if medio_efectivo:
+                context['medio_efectivo_id'] = medio_efectivo.id
+        except:
+            pass
+        
+        # Sugerir el siguiente número de comprobante
+        ultimo_comprobante = Venta.objects.order_by('-id').first()
+        if ultimo_comprobante:
+            ultimo_numero = int(ultimo_comprobante.NumeroComprobate.split('-')[-1])
+            nuevo_numero = ultimo_numero + 1
+            prefijo = ultimo_comprobante.NumeroComprobate.split('-')[0]
+            context['ultimo_comprobante'] = f"{prefijo}-{nuevo_numero:05d}"
     
     return render(request, 'ventas.html', context)
 
@@ -654,6 +718,403 @@ def detalle_caja_view(request, caja_id):
         return render(request, 'detalle_caja_ajax.html', context)
     except Caja.DoesNotExist:
         return HttpResponse('<div class="alert alert-danger">La caja solicitada no existe</div>')
+
+# Agregar esta vista para guardar clientes mediante AJAX
+@csrf_exempt
+def guardar_cliente_ajax(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            cliente = Cliente(
+                Nombre=data['nombre'],
+                Apellido=data['apellido'],
+                DNI=data.get('dni', ''),
+                Telefono=data.get('telefono', ''),
+                Email=data.get('email', ''),
+                Direccion=data.get('direccion', '')
+            )
+            cliente.save()
+            return JsonResponse({
+                'success': True,
+                'cliente_id': cliente.id
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+# Vistas para Historial de Movimientos de Stock
+@login_required
+def historial_movimientos(request):
+    form = BusquedaMovimientosForm(request.GET or None)
+    
+    # Consulta base
+    movimientos = MovimientoStock.objects.all()
+    
+    # Aplicar filtros si el formulario es válido
+    if form.is_valid():
+        producto = form.cleaned_data.get('producto')
+        tipo = form.cleaned_data.get('tipo')
+        origen = form.cleaned_data.get('origen')
+        fecha_desde = form.cleaned_data.get('fecha_desde')
+        fecha_hasta = form.cleaned_data.get('fecha_hasta')
+        
+        if producto:
+            movimientos = movimientos.filter(Producto=producto)
+        if tipo:
+            movimientos = movimientos.filter(Tipo=tipo)
+        if origen:
+            movimientos = movimientos.filter(OrigenMovimiento=origen)
+        if fecha_desde:
+            movimientos = movimientos.filter(Fecha__date__gte=fecha_desde)
+        if fecha_hasta:
+            movimientos = movimientos.filter(Fecha__date__lte=fecha_hasta)
+    
+    # Ordenar por fecha descendente
+    movimientos = movimientos.order_by('-Fecha')
+    
+    # Paginación
+    paginator = Paginator(movimientos, 50)
+    page = request.GET.get('page')
+    movimientos_paginados = paginator.get_page(page)
+    
+    context = {
+        'form': form,
+        'movimientos': movimientos_paginados,
+    }
+    
+    return render(request, 'ventas/historial_movimientos.html', context)
+
+# Vistas para Ajustes de Inventario
+@login_required
+def lista_ajustes(request):
+    ajustes = AjusteInventario.objects.all().order_by('-Fecha')
+    
+    # Paginación
+    paginator = Paginator(ajustes, 20)
+    page = request.GET.get('page')
+    ajustes_paginados = paginator.get_page(page)
+    
+    context = {
+        'ajustes': ajustes_paginados,
+    }
+    
+    return render(request, 'ventas/lista_ajustes.html', context)
+
+@login_required
+def crear_ajuste(request):
+    if request.method == 'POST':
+        form = AjusteInventarioForm(request.POST)
+        if form.is_valid():
+            with transaction.atomic():
+                # Crear el ajuste pero no guardarlo aún
+                ajuste = form.save(commit=False)
+                ajuste.Usuario = request.user
+                
+                # Guardar el ajuste
+                ajuste.save()
+                
+                messages.success(request, "Ajuste de inventario creado. Ahora agregue los detalles.")
+                return redirect('detalle_ajuste', ajuste_id=ajuste.id)
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        form = AjusteInventarioForm()
+    
+    context = {
+        'form': form,
+    }
+    
+    return render(request, 'ventas/crear_ajuste.html', context)
+
+@login_required
+def detalle_ajuste(request, ajuste_id):
+    ajuste = get_object_or_404(AjusteInventario, pk=ajuste_id)
+    detalles = DetalleAjuste.objects.filter(Ajuste=ajuste)
+    
+    if request.method == 'POST':
+        form = DetalleAjusteForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    detalle = form.save(commit=False)
+                    detalle.Ajuste = ajuste
+                    detalle.CantidadAnterior = detalle.Producto.Cantidad
+                    detalle.save()
+                    
+                    messages.success(request, "Detalle agregado correctamente.")
+                    return redirect('detalle_ajuste', ajuste_id=ajuste.id)
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        form = DetalleAjusteForm()
+    
+    context = {
+        'ajuste': ajuste,
+        'detalles': detalles,
+        'form': form,
+    }
+    
+    return render(request, 'ventas/detalle_ajuste.html', context)
+
+# Vistas para Inventario Físico
+@login_required
+def lista_inventarios(request):
+    inventarios = InventarioFisico.objects.all().order_by('-Fecha')
+    
+    # Paginación
+    paginator = Paginator(inventarios, 20)
+    page = request.GET.get('page')
+    inventarios_paginados = paginator.get_page(page)
+    
+    context = {
+        'inventarios': inventarios_paginados,
+    }
+    
+    return render(request, 'ventas/lista_inventarios.html', context)
+
+@login_required
+def crear_inventario(request):
+    if request.method == 'POST':
+        form = InventarioFisicoForm(request.POST)
+        if form.is_valid():
+            with transaction.atomic():
+                # Crear el inventario pero no guardarlo aún
+                inventario = form.save(commit=False)
+                inventario.Usuario = request.user
+                inventario.Estado = 'BORRADOR'
+                
+                # Guardar el inventario
+                inventario.save()
+                
+                messages.success(request, "Inventario físico creado. Ahora agregue los productos.")
+                return redirect('detalle_inventario', inventario_id=inventario.id)
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        form = InventarioFisicoForm()
+    
+    context = {
+        'form': form,
+    }
+    
+    return render(request, 'ventas/crear_inventario.html', context)
+
+@login_required
+def detalle_inventario(request, inventario_id):
+    inventario = get_object_or_404(InventarioFisico, pk=inventario_id)
+    
+    # Si el inventario no está en estado borrador, no permitir modificaciones
+    if inventario.Estado != 'BORRADOR':
+        messages.warning(request, "Este inventario ya está finalizado y no puede ser modificado.")
+        return redirect('lista_inventarios')
+    
+    detalles = DetalleInventarioFisico.objects.filter(Inventario=inventario)
+    
+    if request.method == 'POST':
+        # Verificar si es una solicitud para agregar un producto
+        if 'agregar_producto' in request.POST:
+            producto_id = request.POST.get('producto')
+            
+            # Verificar si el producto ya está en el inventario
+            if DetalleInventarioFisico.objects.filter(Inventario=inventario, Producto_id=producto_id).exists():
+                messages.error(request, "Este producto ya está en el inventario.")
+            else:
+                try:
+                    producto = Producto.objects.get(pk=producto_id)
+                    
+                    # Crear el detalle con la cantidad del sistema
+                    DetalleInventarioFisico.objects.create(
+                        Inventario=inventario,
+                        Producto=producto,
+                        CantidadSistema=producto.Cantidad,
+                        CantidadFisica=0  # Inicialmente 0, el usuario debe ingresar la cantidad real
+                    )
+                    
+                    messages.success(request, f"Producto {producto.Nombre} agregado al inventario.")
+                except Producto.DoesNotExist:
+                    messages.error(request, "Producto no encontrado.")
+        
+        # Verificar si es una solicitud para actualizar la cantidad física
+        elif 'actualizar_cantidad' in request.POST:
+            detalle_id = request.POST.get('detalle_id')
+            cantidad_fisica = request.POST.get('cantidad_fisica')
+            
+            try:
+                detalle = DetalleInventarioFisico.objects.get(pk=detalle_id, Inventario=inventario)
+                detalle.CantidadFisica = cantidad_fisica
+                detalle.save()
+                
+                messages.success(request, f"Cantidad actualizada para {detalle.Producto.Nombre}.")
+            except DetalleInventarioFisico.DoesNotExist:
+                messages.error(request, "Detalle no encontrado.")
+        
+        # Verificar si es una solicitud para finalizar el inventario
+        elif 'finalizar_inventario' in request.POST:
+            try:
+                inventario.finalizar(request.user)
+                messages.success(request, "Inventario finalizado y ajustes aplicados correctamente.")
+                return redirect('lista_inventarios')
+            except ValidationError as e:
+                messages.error(request, str(e))
+    
+    # Obtener productos que no están en el inventario para el selector
+    productos_en_inventario = detalles.values_list('Producto_id', flat=True)
+    productos_disponibles = Producto.objects.exclude(id__in=productos_en_inventario).order_by('Nombre')
+    
+    context = {
+        'inventario': inventario,
+        'detalles': detalles,
+        'productos_disponibles': productos_disponibles,
+    }
+    
+    return render(request, 'ventas/detalle_inventario.html', context)
+
+# Vistas para Transferencias entre Productos
+@login_required
+def lista_transferencias(request):
+    transferencias = TransferenciaProducto.objects.all().order_by('-Fecha')
+    
+    # Paginación
+    paginator = Paginator(transferencias, 20)
+    page = request.GET.get('page')
+    transferencias_paginadas = paginator.get_page(page)
+    
+    context = {
+        'transferencias': transferencias_paginadas,
+    }
+    
+    return render(request, 'ventas/lista_transferencias.html', context)
+
+@login_required
+def crear_transferencia(request):
+    if request.method == 'POST':
+        form = TransferenciaProductoForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    transferencia = form.save(commit=False)
+                    transferencia.Usuario = request.user
+                    transferencia.Estado = 'PENDIENTE'
+                    transferencia.save()
+                    
+                    messages.success(request, "Transferencia creada correctamente.")
+                    return redirect('lista_transferencias')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        form = TransferenciaProductoForm()
+    
+    context = {
+        'form': form,
+    }
+    
+    return render(request, 'ventas/crear_transferencia.html', context)
+
+@login_required
+def completar_transferencia(request, transferencia_id):
+    transferencia = get_object_or_404(TransferenciaProducto, pk=transferencia_id)
+    
+    try:
+        transferencia.completar()
+        messages.success(request, "Transferencia completada correctamente.")
+    except ValidationError as e:
+        messages.error(request, str(e))
+    
+    return redirect('lista_transferencias')
+
+@login_required
+def cancelar_transferencia(request, transferencia_id):
+    transferencia = get_object_or_404(TransferenciaProducto, pk=transferencia_id)
+    
+    try:
+        transferencia.cancelar()
+        messages.success(request, "Transferencia cancelada correctamente.")
+    except ValidationError as e:
+        messages.error(request, str(e))
+    
+    return redirect('lista_transferencias')
+
+# Vistas para Reservas de Stock
+@login_required
+def lista_reservas(request):
+    reservas = ReservaStock.objects.all().order_by('-Fecha')
+    
+    # Paginación
+    paginator = Paginator(reservas, 20)
+    page = request.GET.get('page')
+    reservas_paginadas = paginator.get_page(page)
+    
+    context = {
+        'reservas': reservas_paginadas,
+    }
+    
+    return render(request, 'ventas/lista_reservas.html', context)
+
+@login_required
+def crear_reserva(request):
+    if request.method == 'POST':
+        form = ReservaStockForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Verificar stock disponible
+                    producto = form.cleaned_data['Producto']
+                    cantidad = form.cleaned_data['Cantidad']
+                    
+                    if not producto.stock_disponible(cantidad):
+                        raise ValidationError(f"Stock insuficiente para {producto.Nombre}")
+                    
+                    # Crear la reserva
+                    reserva = form.save(commit=False)
+                    reserva.Usuario = request.user
+                    reserva.Estado = 'ACTIVA'
+                    reserva.save()
+                    
+                    messages.success(request, "Reserva creada correctamente.")
+                    return redirect('lista_reservas')
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+    else:
+        form = ReservaStockForm()
+    
+    context = {
+        'form': form,
+    }
+    
+    return render(request, 'ventas/crear_reserva.html', context)
+
+@login_required
+def cancelar_reserva(request, reserva_id):
+    reserva = get_object_or_404(ReservaStock, pk=reserva_id)
+    
+    try:
+        reserva.cancelar()
+        messages.success(request, "Reserva cancelada correctamente.")
+    except ValidationError as e:
+        messages.error(request, str(e))
+    
+    return redirect('lista_reservas')
+
+@login_required
+def utilizar_reserva(request, reserva_id):
+    reserva = get_object_or_404(ReservaStock, pk=reserva_id)
+    
+    try:
+        reserva.utilizar()
+        messages.success(request, "Reserva marcada como utilizada correctamente.")
+    except ValidationError as e:
+        messages.error(request, str(e))
+    
+    return redirect('lista_reservas')
 
 
 
