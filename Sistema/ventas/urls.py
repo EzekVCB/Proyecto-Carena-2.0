@@ -23,6 +23,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='Logout'),
     path('register/', views.register_view, name='Register'),
     path('caja/', views.caja_view, name='caja'),
+    path('apertura_caja/', views.caja_view, name='apertura_caja'),
     path('ventas/', views.ventas_view, name='ventas'),
     path('historial-cajas/', views.historial_cajas_view, name='historial_cajas'),
     path('detalle-caja/<int:caja_id>/', views.detalle_caja_view, name='detalle_caja'),
