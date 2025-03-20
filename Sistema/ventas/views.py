@@ -469,7 +469,7 @@ def ventas_view(request):
                 # El movimiento de caja se creará automáticamente al guardar la venta
                 
                 messages.success(request, f'Venta #{venta.NumeroComprobate} registrada exitosamente')
-                return redirect(reverse('ventas') + f'?venta_exitosa={venta.NumeroComprobate}')
+                return redirect(reverse('ventas') + f'?venta_exitosa={venta.NumeroComprobate}&venta_id={venta.id}')
                 
         except Exception as e:
             print(f"ERROR GENERAL: {str(e)}")
@@ -1670,6 +1670,74 @@ def delete_subcategoria_view(request):
                 })
             messages.error(request, f"Error al eliminar la subcategoría: {str(e)}")
     return redirect('Categorias')
+
+@login_required
+def imprimir_ticket(request, venta_id):
+    print(f"Intentando imprimir ticket para venta_id: {venta_id}")
+    try:
+        # Obtener la venta y sus detalles
+        venta = Venta.objects.get(id=venta_id)
+        print(f"Venta encontrada: {venta.NumeroComprobate}")
+        detalles = DetalleVenta.objects.filter(Venta=venta)
+        print(f"Detalles encontrados: {detalles.count()}")
+        
+        # Configurar el contexto para el template
+        context = {
+            'venta': venta,
+            'detalles': detalles,
+            'fecha': venta.Fecha.strftime('%d/%m/%Y %H:%M'),
+            'total': venta.ImporteTotal,
+            'cliente': venta.Cliente.Nombre if venta.Cliente else "Consumidor Final",
+           
+            'numero_ticket': venta.NumeroComprobate,
+            'empresa_nombre': 'CARENA',
+            'empresa_domicilio': 'Av. Principal 123',
+            'empresa_telefono': '123-456-7890',
+            'mensaje_personalizado': '¡GRACIAS POR SU PREFERENCIA!'
+        }
+        
+        print("Contexto preparado, intentando renderizar template")
+        # Obtener el template
+        template = get_template('ticket.html')
+        
+        # Renderizar el HTML
+        html = template.render(context)
+        print("Template renderizado, generando PDF")
+        
+        # Configurar el CSS para la impresión
+        css = CSS(string='''
+            @page {
+                size: 80mm 297mm;
+                margin: 0;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                font-size: 10px;
+                margin: 0;
+                padding: 10px;
+            }
+        ''')
+        
+        # Generar el PDF
+        pdf = HTML(string=html).write_pdf(stylesheets=[css])
+        print("PDF generado, enviando respuesta")
+        
+        # Crear la respuesta HTTP con el PDF
+        response = HttpResponse(pdf, content_type='application/pdf')
+        # Cambiar el header para que se imprima automáticamente
+        response['Content-Disposition'] = 'inline; filename="ticket.pdf"'
+        response['X-Content-Type-Options'] = 'nosniff'
+        
+        return response
+        
+    except Venta.DoesNotExist:
+        print(f"Error: No se encontró la venta con ID {venta_id}")
+        messages.error(request, 'No se encontró la venta especificada.')
+        return redirect('ventas')
+    except Exception as e:
+        print(f"Error al generar el ticket: {str(e)}")
+        messages.error(request, f'Error al generar el ticket: {str(e)}')
+        return redirect('ventas')
 
 
 

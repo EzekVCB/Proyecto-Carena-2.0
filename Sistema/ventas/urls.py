@@ -25,6 +25,7 @@ urlpatterns = [
     path('caja/', views.caja_view, name='caja'),
     path('apertura_caja/', views.caja_view, name='apertura_caja'),
     path('ventas/', views.ventas_view, name='ventas'),
+    path('imprimir_ticket/<int:venta_id>/', views.imprimir_ticket, name='imprimir_ticket'),
     path('historial-cajas/', views.historial_cajas_view, name='historial_cajas'),
     path('detalle-caja/<int:caja_id>/', views.detalle_caja_view, name='detalle_caja'),
     path('guardar-cliente-ajax/', views.guardar_cliente_ajax, name='guardar_cliente_ajax'),

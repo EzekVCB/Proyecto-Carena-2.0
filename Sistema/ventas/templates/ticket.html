@@ -1,82 +1,163 @@
-{% load static %}
 {% load humanize %}
+<!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Ticket de Venta</title>
+    <title>Ticket de Venta #{{ numero_ticket }}</title>
     <style>
         @page {
-            size: 58mm 200mm;
-            margin: 0.5cm 0.5cm 0.5cm 0.5cm;
+            size: 80mm auto;
+            margin: 0;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            margin: 0;
+            padding: 10px;
+            background-color: white;
+            text-align: center;
+        }
+        .ticket {
+            width: 100%;
+            max-width: 80mm;
+            margin: 0 auto;
+            padding: 5px;
+            border: 1px dashed #000;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #000;
+        }
+        .empresa-nombre {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .empresa-info {
+            font-size: 8px;
+        }
+        .ticket-info, .cliente-info {
+            font-size: 8px;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        .ticket-numero {
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            margin: 5px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 5px 0;
+        }
+        th, td {
+            font-size: 8px;
+            padding: 2px;
+        }
+        th {
+            text-align: left;
+            border-bottom: 1px dashed #000;
+        }
+        .cantidad {
+            text-align: center;
+            width: 15%;
+        }
+        .descripcion {
+            width: 45%;
+        }
+        .precio, .subtotal {
+            text-align: right;
+            width: 20%;
+        }
+        .totales {
+            margin-top: 10px;
+            text-align: right;
+            font-size: 8px;
+        }
+        .total-final {
+            font-size: 10px;
+            font-weight: bold;
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 8px;
+        }
+        .mensaje {
+            font-style: italic;
+            margin: 5px 0;
+        }
+        .vendedor {
+            font-size: 7px;
+            color: #666;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="row">
-            <div class="col-12 text-center">
-                <img src="{{empresa.imagen.url}}" alt="Logo empresa" width="30" height="3"> <br>
-                # Ticket: {{num_ticket}} <br>
-                Fecha: {{fecha}} <br>
-                <h5> <b>{{empresa.nombre}} </b></h5>
-                {{empresa.domicilio}} <br>
-                {{empresa.telefono}}<br>
-                Cliente: {{cliente}} <br>
-                <br>
-            </div>
+    <div class="ticket">
+        <!-- ENCABEZADO -->
+        <div class="header">
+            <div class="empresa-nombre">{{ empresa.nombre }}</div>
+            <div class="empresa-info">{{ empresa.domicilio }}</div>
+            <div class="empresa-info">Tel: {{ empresa.telefono }}</div>
         </div>
-        <div class="row">
-            <div class="col-12 text-center">
-                <table>
-                    <thead>
-                        <tr>
-                            <td style="width:20%"> <b>Cant.</b></td>
-                            <td style="width:60%"> <b> Producto</b> </td>
-                            <td style="width:20%"> <b>Subtotal</b>  </td>
-                        </tr>
-                    </thead>
-                    <tbody class="text-dark">
-                        {% if iva == "false" or iva == "False" %}
-                        {% for i in items %}
-                        <tr>
-                            <td>{{i.cantidad}}</td>
-                            <td>{{i.producto.descripcion}}</td>
-                            <td>{{empresa.moneda}} {{i.total|intcomma}}</td>
 
-                        </tr>
-                        {% endfor %}
-                        {% elif iva == "true" or iva == "True" %}
-                        {% for i in items %}
-                        <tr>
-                            <td>{{i.cantidad}}</td>
-                            <td>{{i.producto.descripcion}}</td>
-                            <td>{{empresa.moneda}} {{i.subtotal|intcomma}}</td>
+        <!-- INFO DEL TICKET -->
+        <div class="ticket-info">
+            <div class="ticket-numero">TICKET #{{ numero_ticket }}</div>
+            <p>Fecha: {{ fecha }}</p>
+        </div>
 
-                        </tr>
-                        {% endfor %}
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
+        <!-- INFO DEL CLIENTE -->
+        <div class="cliente-info">
+            <p>Cliente: {{ cliente }}</p>
         </div>
-        <div class="row">
-            <div class="col-12">
-                {% if iva == "true" or iva == "True" %}
-                <h5 style="text-align: right;"> <b> Subtotal: {{empresa.moneda}} {{subtotal|floatformat:"2"|intcomma}}</b></h5>
-                <h5 style="text-align: right;"> <b> Iva: {{empresa.moneda}} {{iva_suma|floatformat:"2"|intcomma}}</b></h5>
-                {% endif %}
-                <h5 style="text-align: right;"> <b> Total: {{empresa.moneda}} {{total|floatformat:"2"|intcomma}}</b></h5>
-            </div>
+
+        <!-- DETALLE DE VENTA -->
+        <table>
+            <thead>
+                <tr>
+                    <th class="cantidad">Cant</th>
+                    <th class="descripcion">Descripción</th>
+                    <th class="precio">Precio</th>
+                    <th class="subtotal">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in detalles %}
+                <tr>
+                    <td class="cantidad">{{ detalle.Cantidad }}</td>
+                    <td class="descripcion">{{ detalle.Producto.Nombre }}</td>
+                    <td class="precio">${{ detalle.PrecioUnitario|floatformat:2 }}</td>
+                    <td class="subtotal">${{ detalle.Subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- TOTAL -->
+        <div class="totales">
+            <p>Subtotal: ${{ total|floatformat:2 }}</p>
+            {% if iva %}
+            <p>IVA (21%): ${{ iva|floatformat:2 }}</p>
+            <p class="total-final">Total: ${{ total_con_iva|floatformat:2 }}</p>
+            {% else %}
+            <p class="total-final">Total: ${{ total|floatformat:2 }}</p>
+            {% endif %}
         </div>
-        <div class="row">
-            <div class="col-12">
-                <p style="text-align: center;">GRACIAS POR SU PREFERENCIA</P>
-            </div>
+
+        <!-- PIE DE TICKET -->
+        <div class="footer">
+            <div class="mensaje">Gracias por su compra!!!</div>
+            
         </div>
     </div>
 </body>
-
 </html>

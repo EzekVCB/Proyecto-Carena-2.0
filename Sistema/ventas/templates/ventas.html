@@ -156,23 +156,13 @@
                         <small class="form-text text-muted">Puede editarlo o dejarlo vacío para generación automática.</small>
                     </div>
                     
-                    <!-- Tipo de Ticket -->
-                    <div class="form-group">
-                        <label><strong>Imprimir Ticket:</strong></label>
-                        <div class="custom-control custom-radio">
-                            <input type="radio" id="imprimir_si" name="imprimir_ticket" class="custom-control-input" value="si" checked>
-                            <label class="custom-control-label" for="imprimir_si">Sí</label>
-                        </div>
-                        <div class="custom-control custom-radio">
-                            <input type="radio" id="imprimir_no" name="imprimir_ticket" class="custom-control-input" value="no">
-                            <label class="custom-control-label" for="imprimir_no">No</label>
-                        </div>
-                    </div>
+                    
                     
                     <h4 class="font-weight-bold mt-3">Total: <span id="totalVenta" class="float-right">$0.00</span></h4>
                     
                     <hr>
                     
+                   
                     <!-- Medios de Pago - Simplificado -->
                     <div class="form-group">
                         <label><strong>Medios de Pago:</strong></label>
@@ -292,7 +282,8 @@
                 <!-- El contenido se llenará dinámicamente -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-dismiss="modal">Aceptar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Nueva Compra</button>
+                <button type="button" class="btn btn-primary" id="btnImprimirTicket" onclick="window.open(`/imprimir_ticket/${ventaId}/`, '_blank')">Imprimir Ticket</button>
             </div>
         </div>
     </div>
@@ -308,6 +299,7 @@
         // Obtener parámetros de la URL
         const urlParams = new URLSearchParams(window.location.search);
         const ventaExitosa = urlParams.get('venta_exitosa');
+        const ventaId = urlParams.get('venta_id');
         
         if (ventaExitosa) {
             // Mostrar modal de éxito
@@ -321,12 +313,31 @@
             `;
             $('#resultadoVentaModal').modal('show');
             
+            // Configurar el botón de imprimir ticket
+            const btnImprimirTicket = document.getElementById('btnImprimirTicket');
+            if (btnImprimirTicket) {
+                btnImprimirTicket.addEventListener('click', function() {
+                    if (ventaId) {
+                        // Abrir el PDF en una nueva pestaña
+                        window.open(`/imprimir_ticket/${ventaId}/`, '_blank');
+                    } else {
+                        console.error('No se encontró el ID de la venta');
+                        alert('Error: No se encontró el ID de la venta');
+                    }
+                });
+            }
+            
+            // Configurar el botón de nueva compra
+            const btnNuevaCompra = document.querySelector('.btn-secondary');
+            if (btnNuevaCompra) {
+                btnNuevaCompra.addEventListener('click', function() {
+                    window.location.reload();
+                });
+            }
+            
             // Limpiar parámetros de URL después de mostrar el modal
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-        
-        // Verificar si hay mensajes de error en la sesión (Django messages)
-        // Esto se maneja automáticamente por el sistema de mensajes de Django
     });
 </script>
 {% endblock %}
