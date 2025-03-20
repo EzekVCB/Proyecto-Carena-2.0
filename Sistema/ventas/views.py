@@ -467,7 +467,7 @@ def ventas_view(request):
                 # El movimiento de caja se creará automáticamente al guardar la venta
                 
                 messages.success(request, f'Venta #{venta.NumeroComprobate} registrada exitosamente')
-                return redirect(reverse('ventas') + f'?venta_exitosa={venta.NumeroComprobate}')
+                return redirect(reverse('ventas') + f'?venta_exitosa={venta.NumeroComprobate}&venta_id={venta.id}')
                 
         except Exception as e:
             print(f"ERROR GENERAL: {str(e)}")

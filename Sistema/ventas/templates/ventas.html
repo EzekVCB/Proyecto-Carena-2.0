@@ -160,6 +160,7 @@
                     
                     <hr>
                     
+                   
                     <!-- Medios de Pago - Simplificado -->
                     <div class="form-group">
                         <label><strong>Medios de Pago:</strong></label>
@@ -301,6 +302,7 @@
         // Obtener parámetros de la URL
         const urlParams = new URLSearchParams(window.location.search);
         const ventaExitosa = urlParams.get('venta_exitosa');
+        const ventaId = urlParams.get('venta_id');
         
         if (ventaExitosa) {
             // Mostrar modal de éxito
@@ -313,6 +315,28 @@
                 </div>
             `;
             $('#resultadoVentaModal').modal('show');
+            
+            // Configurar el botón de imprimir ticket
+            const btnImprimirTicket = document.getElementById('btnImprimirTicket');
+            if (btnImprimirTicket) {
+                btnImprimirTicket.addEventListener('click', function() {
+                    if (ventaId) {
+                        // Abrir el PDF en una nueva pestaña
+                        window.open(`/imprimir_ticket/${ventaId}/`, '_blank');
+                    } else {
+                        console.error('No se encontró el ID de la venta');
+                        alert('Error: No se encontró el ID de la venta');
+                    }
+                });
+            }
+            
+            // Configurar el botón de nueva compra
+            const btnNuevaCompra = document.querySelector('.btn-secondary');
+            if (btnNuevaCompra) {
+                btnNuevaCompra.addEventListener('click', function() {
+                    window.location.reload();
+                });
+            }
             
             // Limpiar parámetros de URL después de mostrar el modal
             window.history.replaceState({}, document.title, window.location.pathname);
