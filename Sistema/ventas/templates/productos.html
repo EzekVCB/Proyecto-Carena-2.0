@@ -7,23 +7,644 @@
 <link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
 <script src="{% static 'index/js/b4.js' %}"></script>
 
+<script>
+    // Configuración global de AJAX para incluir el CSRF token
+    $.ajaxSetup({
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    });
+
+    // Variables globales para los porcentajes
+    let porcentajeContado = 30;
+    let porcentajeLista = 40;
+
+    // Función para guardar los porcentajes configurados
+    function guardarPorcentajes() {
+        porcentajeContado = parseFloat(document.getElementById('porcentajeContado').value);
+        porcentajeLista = parseFloat(document.getElementById('porcentajeLista').value);
+        
+        // Recalcular precios si hay un precio de costo
+        const precioCosto = document.querySelector('.PrecioCosto').value;
+        if (precioCosto) {
+            calcularPrecios(precioCosto);
+        }
+        
+        $('#ConfigurarPorcentajesModal').modal('hide');
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Éxito',
+            text: 'Porcentajes actualizados correctamente',
+            timer: 1500
+        });
+    }
+
+    // Función para calcular precios automáticamente
+    function calcularPrecios(precioCosto) {
+        if (precioCosto) {
+            const costo = parseFloat(precioCosto);
+            if (!isNaN(costo)) {
+                const precioContado = document.querySelector('.PrecioDeContado');
+                const precioLista = document.querySelector('.PrecioDeLista');
+                
+                // Solo actualizar si los campos no han sido modificados manualmente
+                if (!precioContado.dataset.modificadoManualmente) {
+                    precioContado.value = (costo * (1 + porcentajeContado/100)).toFixed(2);
+                }
+                if (!precioLista.dataset.modificadoManualmente) {
+                    precioLista.value = (costo * (1 + porcentajeLista/100)).toFixed(2);
+                }
+            }
+        }
+    }
+
+    // Cuando el documento esté listo
+    $(document).ready(function() {
+        // Evento para el formulario de creación
+        $('#id_categoria').change(function() {
+            actualizarSubcategorias($(this).val());
+        });
+
+        // Evento para el formulario de edición
+        $('#EditarProductoModal #id_categoria').change(function() {
+            actualizarSubcategorias($(this).val(), '#EditarProductoModal #id_subcategoria');
+        });
+
+        // Evento para calcular precios cuando cambia el precio de costo
+        $('.PrecioCosto').on('input', function() {
+            calcularPrecios(this.value);
+        });
+
+        // Marcar campos como modificados manualmente
+        $('.PrecioDeContado, .PrecioDeLista').on('input', function() {
+            this.dataset.modificadoManualmente = true;
+        });
+
+        // Establecer la fecha actual en el campo de última modificación
+        const today = new Date().toISOString().split('T')[0];
+        $('input[name="FechaUltimaModificacion"]').val(today);
+    });
+
+    function actualizarSubcategorias(categoriaId, targetSelector = '#id_subcategoria') {
+        var subcategoriaSelect = $(targetSelector);
+        
+        subcategoriaSelect.empty();
+        subcategoriaSelect.append('<option value="">---------</option>');
+        
+        if (categoriaId) {
+            $.ajax({
+                url: '{% url "get_subcategorias" %}',
+                data: {
+                    'categoria_id': categoriaId
+                },
+                success: function(data) {
+                    var subcategorias = data.subcategorias;
+                    for (var i = 0; i < subcategorias.length; i++) {
+                        subcategoriaSelect.append(
+                            '<option value="' + subcategorias[i].id + '">' +
+                            subcategorias[i].Nombre + '</option>'
+                        );
+                    }
+                }
+            });
+        }
+    }
+
+    function actualizarCategorias(callback) {
+        $.ajax({
+            url: '{% url "get_subcategorias" %}',  // Usaremos la misma URL pero sin parámetros
+            success: function(data) {
+                var categoriaSelect = $('#id_categoria');
+                var categoriaModalSelect = $('#categoriaSelect');
+                var currentValue = categoriaSelect.val();
+                
+                // Guardamos las opciones actuales del select de categorías del modal
+                var modalCurrentValue = categoriaModalSelect.val();
+                
+                categoriaSelect.empty();
+                categoriaModalSelect.empty();
+                
+                categoriaSelect.append('<option value="">---------</option>');
+                categoriaModalSelect.append('<option value="">Seleccione una categoría</option>');
+                
+                if (data.categorias) {
+                    data.categorias.forEach(function(categoria) {
+                        categoriaSelect.append(
+                            '<option value="' + categoria.id + '">' +
+                            categoria.Nombre + '</option>'
+                        );
+                        categoriaModalSelect.append(
+                            '<option value="' + categoria.id + '">' +
+                            categoria.Nombre + '</option>'
+                        );
+                    });
+                }
+                
+                // Restauramos los valores seleccionados
+                if (currentValue) categoriaSelect.val(currentValue);
+                if (modalCurrentValue) categoriaModalSelect.val(modalCurrentValue);
+                
+                if (callback) callback();
+            }
+        });
+    }
+
+    function guardarCategoria() {
+        var formData = new FormData(document.getElementById('formCategoria'));
+        
+        $.ajax({
+            url: '{% url "AddCategoria" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    // Limpiar el formulario
+                    document.getElementById('formCategoria').reset();
+                    
+                    // Actualizar los selectores de categoría
+                    actualizarCategorias(function() {
+                        // Después de actualizar, seleccionar la nueva categoría
+                        $('#id_categoria').val(response.id);
+                        // Limpiar las subcategorías
+                        $('#id_subcategoria').empty().append('<option value="">---------</option>');
+                    });
+                    
+                    // Cerrar el modal
+                    $('#AgregarCategoriaModal').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Categoría creada correctamente',
+                        timer: 1500
+                    });
+                }
+            },
+            error: function(xhr, errmsg, err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear la categoría'
+                });
+            }
+        });
+    }
+
+    function guardarSubcategoria() {
+        var formData = new FormData(document.getElementById('formSubcategoria'));
+        
+        $.ajax({
+            url: '{% url "AddSubcategoria" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    // Obtener la categoría seleccionada
+                    var categoriaId = $('#categoriaSelect').val();
+                    
+                    // Limpiar el formulario
+                    document.getElementById('formSubcategoria').reset();
+                    
+                    // Actualizar el selector de subcategorías
+                    $('#id_categoria').val(categoriaId).trigger('change');
+                    
+                    // Cerrar el modal
+                    $('#AgregarSubcategoriaModal').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Subcategoría creada correctamente',
+                        timer: 1500
+                    });
+                }
+            },
+            error: function(xhr, errmsg, err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear la subcategoría'
+                });
+            }
+        });
+    }
+
+    function actualizarMarcas() {
+        $.ajax({
+            url: '{% url "get_marcas" %}',
+            success: function(data) {
+                var marcaSelect = $('#id_Marca');
+                var currentValue = marcaSelect.val();
+                
+                marcaSelect.empty();
+                marcaSelect.append('<option value="">---------</option>');
+                
+                if (data.marcas) {
+                    data.marcas.forEach(function(marca) {
+                        marcaSelect.append(
+                            '<option value="' + marca.id + '">' +
+                            marca.Nombre + '</option>'
+                        );
+                    });
+                }
+                
+                if (currentValue) marcaSelect.val(currentValue);
+            }
+        });
+    }
+
+    function actualizarProveedores() {
+        $.ajax({
+            url: '{% url "get_proveedores" %}',
+            success: function(data) {
+                var proveedorSelect = $('#id_Proveedor');
+                var currentValue = proveedorSelect.val();
+                
+                proveedorSelect.empty();
+                proveedorSelect.append('<option value="">---------</option>');
+                
+                if (data.proveedores) {
+                    data.proveedores.forEach(function(proveedor) {
+                        proveedorSelect.append(
+                            '<option value="' + proveedor.id + '">' +
+                            proveedor.RazonSocial + '</option>'
+                        );
+                    });
+                }
+                
+                if (currentValue) proveedorSelect.val(currentValue);
+            }
+        });
+    }
+
+    function actualizarUnidades() {
+        $.ajax({
+            url: '{% url "get_unidades" %}',
+            success: function(data) {
+                var unidadSelect = $('#id_UnidadDeMedida');
+                var currentValue = unidadSelect.val();
+                
+                unidadSelect.empty();
+                unidadSelect.append('<option value="">---------</option>');
+                
+                if (data.unidades) {
+                    data.unidades.forEach(function(unidad) {
+                        unidadSelect.append(
+                            '<option value="' + unidad.id + '">' +
+                            unidad.Nombre + '</option>'
+                        );
+                    });
+                }
+                
+                if (currentValue) unidadSelect.val(currentValue);
+            }
+        });
+    }
+
+    function guardarMarca() {
+        var formData = new FormData(document.getElementById('formMarca'));
+        
+        $.ajax({
+            url: '{% url "AddMarca" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    document.getElementById('formMarca').reset();
+                    actualizarMarcas();
+                    $('#AgregarMarcaModal').modal('hide');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Marca creada correctamente',
+                        timer: 1500
+                    });
+                }
+            },
+            error: function(xhr, errmsg, err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear la marca'
+                });
+            }
+        });
+    }
+
+    function guardarProveedor() {
+        var formData = new FormData(document.getElementById('formProveedor'));
+        
+        $.ajax({
+            url: '{% url "AddProveedor" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    document.getElementById('formProveedor').reset();
+                    actualizarProveedores();
+                    $('#AgregarProveedorModal').modal('hide');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Proveedor creado correctamente',
+                        timer: 1500
+                    });
+                }
+            },
+            error: function(xhr, errmsg, err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear el proveedor'
+                });
+            }
+        });
+    }
+
+    function guardarUnidad() {
+        var formData = new FormData(document.getElementById('formUnidad'));
+        
+        $.ajax({
+            url: '{% url "AddUnidad" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    document.getElementById('formUnidad').reset();
+                    actualizarUnidades();
+                    $('#AgregarUnidadModal').modal('hide');
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Unidad de medida creada correctamente',
+                        timer: 1500
+                    });
+                }
+            },
+            error: function(xhr, errmsg, err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al crear la unidad de medida'
+                });
+            }
+        });
+    }
+
+    function editarProducto(id) {
+        // Hacer una petición AJAX para obtener los datos del producto
+        $.ajax({
+            url: '{% url "get_producto" %}',
+            data: {
+                'id': id
+            },
+            success: function(data) {
+                if (data.producto) {
+                    // Llenar el formulario con los datos del producto
+                    $('#EditarProductoModal #id_Nombre').val(data.producto.Nombre);
+                    $('#EditarProductoModal #id_Descripcion').val(data.producto.Descripcion);
+                    $('#EditarProductoModal #id_Marca').val(data.producto.Marca);
+                    $('#EditarProductoModal #id_Proveedor').val(data.producto.Proveedor);
+                    
+                    // Establecer la categoría y actualizar las subcategorías
+                    var categoriaId = data.producto.categoria;
+                    var subcategoriaId = data.producto.SubCategoria;
+                    
+                    $('#EditarProductoModal #id_categoria').val(categoriaId);
+                    
+                    // Función para actualizar subcategorías y seleccionar la correcta
+                    function actualizarYSeleccionarSubcategoria() {
+                        $.ajax({
+                            url: '{% url "get_subcategorias" %}',
+                            data: {
+                                'categoria_id': categoriaId
+                            },
+                            success: function(subcatData) {
+                                var subcategoriaSelect = $('#EditarProductoModal #id_subcategoria');
+                                subcategoriaSelect.empty();
+                                subcategoriaSelect.append('<option value="">---------</option>');
+                                
+                                subcatData.subcategorias.forEach(function(subcategoria) {
+                                    subcategoriaSelect.append(
+                                        '<option value="' + subcategoria.id + '">' +
+                                        subcategoria.Nombre + '</option>'
+                                    );
+                                });
+                                
+                                // Seleccionar la subcategoría correcta
+                                subcategoriaSelect.val(subcategoriaId);
+                            }
+                        });
+                    }
+                    
+                    // Llamar a la función inmediatamente
+                    actualizarYSeleccionarSubcategoria();
+                    
+                    $('#EditarProductoModal #id_PrecioCosto').val(data.producto.PrecioCosto);
+                    $('#EditarProductoModal #id_PrecioDeLista').val(data.producto.PrecioDeLista);
+                    $('#EditarProductoModal #id_PrecioDeContado').val(data.producto.PrecioDeContado);
+                    $('#EditarProductoModal #id_Cantidad').val(data.producto.Cantidad);
+                    $('#EditarProductoModal #id_CantidadMinimaSugerida').val(data.producto.CantidadMinimaSugerida);
+                    $('#EditarProductoModal #id_UnidadDeMedida').val(data.producto.UnidadDeMedida);
+                    $('#EditarProductoModal #id_FechaUltimaModificacion').val(data.producto.FechaUltimaModificacion);
+                    
+                    // Guardar el ID del producto para el formulario
+                    $('#EditarProductoModal #id_producto_editar').val(id);
+                    
+                    // Mostrar el modal
+                    $('#EditarProductoModal').modal('show');
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al cargar los datos del producto'
+                });
+            }
+        });
+    }
+</script>
+
 <div id="AgregarProductoModal" class="modal" style="overflow: scroll;">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-info">
                 <h5 class="modal-title text-dark">Agregar nuevo producto</h5>
             </div>
             <div class="modal-body bg-dark text-white">
                 <form method="POST" action="{% url 'AddProducto' %}" enctype="multipart/form-data">{% csrf_token %}
+                    <!-- Información Básica -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Información Básica</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'Nombre' or field.name == 'Descripcion' or field.name == 'Marca' or field.name == 'Proveedor' %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            {{ field|add_class:"form-control text-dark" }}
+                                            {% if field.name == 'Marca' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarMarcaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                            {% if field.name == 'Proveedor' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarProveedorModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clasificación -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Clasificación</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'categoria' or field.name == 'SubCategoria' %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            {% if field.name == 'SubCategoria' %}
+                                                {{ field|add_class:"form-control text-dark"|attr:"id:id_subcategoria" }}
+                                            {% else %}
+                                                {{ field|add_class:"form-control text-dark" }}
+                                            {% endif %}
+                                            {% if field.name == 'categoria' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarCategoriaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                            {% if field.name == 'SubCategoria' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarSubcategoriaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Precios -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Precios</h5>
+                            <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#ConfigurarPorcentajesModal">
+                                <i class="fas fa-cog"></i> Configurar Porcentajes
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'PrecioCosto' or field.name == 'PrecioDeLista' or field.name == 'PrecioDeContado' %}
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">$</span>
+                                            </div>
+                                            {{ field|add_class:"form-control text-dark precio-input"|add_class:field.name }}
+                                        </div>
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                                {% for field in form_producto %}
+                                    {% if field.name == 'FechaUltimaModificacion' %}
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        {{ field|add_class:"form-control text-dark"|attr:"type:date" }}
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventario -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Inventario</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
                     {% for field in form_producto %}
-                    <p>{{ field.label }} <br>
-                        {{ field|add_class:"form-control text-dark" }}</p>
+                                    {% if field.name == 'Cantidad' or field.name == 'CantidadMinimaSugerida' or field.name == 'UnidadDeMedida' %}
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            {{ field|add_class:"form-control text-dark" }}
+                                            {% if field.name == 'UnidadDeMedida' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarUnidadModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
                     {% for error in field.errors %}
-                    <p class="alarma">{{ error }}</p>
+                                        <small class="text-danger">{{ error }}</small>
                     {% endfor %}
+                                    </div>
+                                    {% endif %}
                     {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
                     {% for error in form.non_field_errors %}
-                    <p class="alarma">{{ error }}</p>
+                    <div class="alert alert-danger">{{ error }}</div>
                     {% endfor %}
             </div>
             <div class="modal-footer bg-dark">
@@ -39,8 +660,186 @@
     </div>
 </div>
 
-<div id="EditarProductoModal" class="modal">
+<!-- Modal para Agregar Categoría -->
+<div id="AgregarCategoriaModal" class="modal" data-backdrop="static">
     <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nueva categoría</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form id="formCategoria">{% csrf_token %}
+                    <div class="form-group">
+                        <label for="nombreCategoria">Nombre de la categoría</label>
+                        <input type="text" class="form-control" id="nombreCategoria" name="Nombre" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarCategoria()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Subcategoría -->
+<div id="AgregarSubcategoriaModal" class="modal" data-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nueva subcategoría</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form id="formSubcategoria">{% csrf_token %}
+                    <div class="form-group">
+                        <label for="categoriaSelect">Categoría</label>
+                        <select class="form-control" id="categoriaSelect" name="Categoria" required>
+                            <option value="">Seleccione una categoría</option>
+                            {% for categoria in form_producto.categoria.field.queryset %}
+                            <option value="{{ categoria.id }}">{{ categoria.Nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="nombreSubcategoria">Nombre de la subcategoría</label>
+                        <input type="text" class="form-control" id="nombreSubcategoria" name="Nombre" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarSubcategoria()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Marca -->
+<div id="AgregarMarcaModal" class="modal" data-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nueva marca</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form id="formMarca">{% csrf_token %}
+                    <div class="form-group">
+                        <label for="nombreMarca">Nombre de la marca</label>
+                        <input type="text" class="form-control" id="nombreMarca" name="Nombre" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarMarca()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Proveedor -->
+<div id="AgregarProveedorModal" class="modal" data-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nuevo proveedor</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form id="formProveedor">{% csrf_token %}
+                    <div class="form-group">
+                        <label for="razonSocial">Razón Social</label>
+                        <input type="text" class="form-control" id="razonSocial" name="RazonSocial" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cuit">CUIT</label>
+                        <input type="text" class="form-control" id="cuit" name="CUIT" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefono">Teléfono</label>
+                        <input type="text" class="form-control" id="telefono" name="Tel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" class="form-control" id="email" name="Email">
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion">Dirección</label>
+                        <input type="text" class="form-control" id="direccion" name="Direccion">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarProveedor()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Unidad de Medida -->
+<div id="AgregarUnidadModal" class="modal" data-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Agregar nueva unidad de medida</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form id="formUnidad">{% csrf_token %}
+                    <div class="form-group">
+                        <label for="nombreUnidad">Nombre de la unidad de medida</label>
+                        <input type="text" class="form-control" id="nombreUnidad" name="Nombre" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarUnidad()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Configurar Porcentajes -->
+<div id="ConfigurarPorcentajesModal" class="modal" data-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark">Configurar Porcentajes de Precios</h5>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <form id="formPorcentajes">
+                    <div class="form-group">
+                        <label for="porcentajeContado">Porcentaje para Precio de Contado</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="porcentajeContado" value="30" min="0" max="100">
+                            <div class="input-group-append">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="porcentajeLista">Porcentaje para Precio de Lista</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="porcentajeLista" value="40" min="0" max="100">
+                            <div class="input-group-append">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarPorcentajes()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Producto -->
+<div id="EditarProductoModal" class="modal" style="overflow: scroll;">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-info">
                 <h5 class="modal-title text-dark">Editar producto</h5>
@@ -48,26 +847,172 @@
             <div class="modal-body bg-dark text-white">
                 <form method="POST" action="{% url 'EditProducto' %}" enctype="multipart/form-data">{% csrf_token %}
                     <input type="hidden" id="id_producto_editar" name="id_producto_editar">
-                    {% for field in form_editar %}
-                    <p>{{ field.label }} <br>
-                        {{ field|add_class:"form-control" }}</p>
+                    
+                    <!-- Información Básica -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Información Básica</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'Nombre' or field.name == 'Descripcion' or field.name == 'Marca' or field.name == 'Proveedor' %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            {{ field|add_class:"form-control text-dark" }}
+                                            {% if field.name == 'Marca' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarMarcaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                            {% if field.name == 'Proveedor' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarProveedorModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clasificación -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Clasificación</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'categoria' or field.name == 'SubCategoria' %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            {% if field.name == 'SubCategoria' %}
+                                                {{ field|add_class:"form-control text-dark"|attr:"id:id_subcategoria" }}
+                                            {% else %}
+                                                {{ field|add_class:"form-control text-dark" }}
+                                            {% endif %}
+                                            {% if field.name == 'categoria' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarCategoriaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                            {% if field.name == 'SubCategoria' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarSubcategoriaModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Precios -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Precios</h5>
+                            <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#ConfigurarPorcentajesModal">
+                                <i class="fas fa-cog"></i> Configurar Porcentajes
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'PrecioCosto' or field.name == 'PrecioDeLista' or field.name == 'PrecioDeContado' %}
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text">$</span>
+                                            </div>
+                                            {{ field|add_class:"form-control text-dark precio-input"|add_class:field.name }}
+                                        </div>
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                                {% for field in form_producto %}
+                                    {% if field.name == 'FechaUltimaModificacion' %}
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        {{ field|add_class:"form-control text-dark"|attr:"type:date" }}
+                                        {% for error in field.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventario -->
+                    <div class="card bg-secondary mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Inventario</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for field in form_producto %}
+                                    {% if field.name == 'Cantidad' or field.name == 'CantidadMinimaSugerida' or field.name == 'UnidadDeMedida' %}
+                                    <div class="col-md-4 mb-3">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <div class="input-group">
+                                            {{ field|add_class:"form-control text-dark" }}
+                                            {% if field.name == 'UnidadDeMedida' %}
+                                            <div class="input-group-append">
+                                                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarUnidadModal">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
                     {% for error in field.errors %}
-                    <p class="alarma">{{ error }}</p>
+                                        <small class="text-danger">{{ error }}</small>
                     {% endfor %}
+                                    </div>
+                                    {% endif %}
                     {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
                     {% for error in form.non_field_errors %}
-                    <p class="alarma">{{ error }}</p>
+                    <div class="alert alert-danger">{{ error }}</div>
                     {% endfor %}
             </div>
-            <div class="modal-footer bg-dark text-white">
+            <div class="modal-footer bg-dark">
                 <button type="button" class="btn btn-danger" data-dismiss="modal">
-                    Volver
+                    Cancelar
                 </button>
                 <button type="submit" class="btn btn-success">
-                    Aceptar
+                    Guardar cambios
                 </button>
-                </form>
             </div>
+            </form>
         </div>
     </div>
 </div>
@@ -121,10 +1066,10 @@
                     {% for producto in productos %}
                     <tr>
                         <td>{{ producto.Nombre }}</td>
-                        <td></td>
+                        <td>{{ producto.Marca }}</td>
                         <td>{{ producto.Cantidad }}</td>
                         <td>
-                            <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
+                            <button onclick="editarProducto('{{ producto.id }}')"
                                 class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal">
                                 <img src="{% static 'index/img/editar.png' %}" alt="Editar" width="30">
                             </button>

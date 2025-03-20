@@ -1,5 +1,6 @@
 from django import forms
-from .models import Proveedor, Cliente, Producto, Categoria, Venta  # Asegúrate de importar todos los modelos necesarios
+from .models import Proveedor, Cliente, Producto, Categoria, Venta, PagoVenta, MovimientoStock, SubCategoria
+from .models import FraccionamientoProducto
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -62,13 +63,19 @@ class EditProveedorForm(forms.ModelForm):
         }
 
 class AddProductoForm(forms.ModelForm):
+    categoria = forms.ModelChoiceField(
+        queryset=Categoria.objects.all(),
+        label='Categoría',
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_categoria'})
+    )
+    
     class Meta:
         model = Producto
         fields = [
             'Nombre', 'SubCategoria', 'Marca', 'Proveedor', 'CodigoDeBarras',
             'Descripcion', 'Cantidad', 'CantidadMinimaSugerida',
             'UnidadDeMedida', 'PrecioCosto', 'PrecioDeLista',
-            'PrecioDeContado', 'FechaUltimaModificacion'
+            'PrecioDeContado'
         ]
         labels = {
             'Nombre': 'Nombre del Producto',
@@ -83,8 +90,21 @@ class AddProductoForm(forms.ModelForm):
             'PrecioCosto': 'Precio de Costo',
             'PrecioDeLista': 'Precio de Lista',
             'PrecioDeContado': 'Precio de Contado',
-            'FechaUltimaModificacion': 'Última Modificación',
         }
+        widgets = {
+            'SubCategoria': forms.Select(attrs={'class': 'form-control', 'id': 'id_subcategoria'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['SubCategoria'].queryset = SubCategoria.objects.none()
+        
+        if 'categoria' in self.data:
+            try:
+                categoria_id = int(self.data.get('categoria'))
+                self.fields['SubCategoria'].queryset = SubCategoria.objects.filter(Categoria_id=categoria_id)
+            except (ValueError, TypeError):
+                pass
 
 class EditProductoForm(forms.ModelForm):
     class Meta:
@@ -93,7 +113,7 @@ class EditProductoForm(forms.ModelForm):
             'Nombre', 'SubCategoria', 'Marca', 'Proveedor', 'CodigoDeBarras',
             'Descripcion', 'Cantidad', 'CantidadMinimaSugerida',
             'UnidadDeMedida', 'PrecioCosto', 'PrecioDeLista',
-            'PrecioDeContado', 'FechaUltimaModificacion'
+            'PrecioDeContado'
         ]
         labels = {
             'Nombre': 'Nombre del Producto:',
@@ -108,7 +128,6 @@ class EditProductoForm(forms.ModelForm):
             'PrecioCosto': 'Precio de Costo:',
             'PrecioDeLista': 'Precio de Lista:',
             'PrecioDeContado': 'Precio de Contado:',
-            'FechaUltimaModificacion': 'Última Modificación:',
         }
         widgets = {
             'Nombre': forms.TextInput(attrs={'type': 'text', 'placeholder': 'Editar nombre del producto'}),
@@ -123,7 +142,6 @@ class EditProductoForm(forms.ModelForm):
             'PrecioCosto': forms.NumberInput(attrs={'placeholder': 'Editar precio de costo'}),
             'PrecioDeLista': forms.NumberInput(attrs={'placeholder': 'Editar precio de lista'}),
             'PrecioDeContado': forms.NumberInput(attrs={'placeholder': 'Editar precio de contado'}),
-            'FechaUltimaModificacion': forms.DateInput(attrs={'type': 'date'}),
         }
 
 class AddCategoriaForm(forms.ModelForm):
@@ -148,13 +166,8 @@ class EditCategoriaForm(forms.ModelForm):
 class VentaForm(forms.ModelForm):
     class Meta:
         model = Venta
-        fields = ['Cliente', 'MedioDePago', 'NumeroComprobate', 'ImporteTotal']
-        labels = {
-            'Cliente': 'Cliente',
-            'MedioDePago': 'Medio de Pago',
-            'NumeroComprobate': 'Número de Comprobante',
-            'ImporteTotal': 'Importe Total',
-        }
+        fields = ['Cliente', 'ImporteTotal', 'Caja', 'Cajero']
+        # Asegúrate de que MedioDePago no esté aquí
 
 class LoginForm(forms.Form):
     username = forms.CharField(
@@ -216,3 +229,59 @@ class RegisterForm(UserCreationForm):
         })
         self.fields['password2'].label = ""
         self.fields['password2'].help_text = "Ingresa la misma contraseña para verificar"
+
+class PagoVentaForm(forms.ModelForm):
+    class Meta:
+        model = PagoVenta
+        fields = ['MedioDePago', 'Monto', 'DatosAdicionales']
+
+# Formulario para MovimientoStock (para ajustes manuales)
+class MovimientoStockForm(forms.ModelForm):
+    class Meta:
+        model = MovimientoStock
+        fields = ['Producto', 'Tipo', 'Cantidad', 'OrigenMovimiento', 'Observaciones']
+        widgets = {
+            'Producto': forms.Select(attrs={'class': 'form-control select2'}),
+            'Tipo': forms.Select(attrs={'class': 'form-control'}),
+            'Cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
+            'OrigenMovimiento': forms.Select(attrs={'class': 'form-control'}),
+            'Observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+# Formulario para TransferenciaProducto
+class FraccionamientoProductoForm(forms.ModelForm):
+    class Meta:
+        model = FraccionamientoProducto
+        fields = ['ProductoOrigen', 'ProductoDestino', 'CantidadOrigen', 'CantidadDestino', 'Observaciones']
+        widgets = {
+            'ProductoOrigen': forms.Select(attrs={'class': 'form-control select2'}),
+            'ProductoDestino': forms.Select(attrs={'class': 'form-control select2'}),
+            'CantidadOrigen': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
+            'CantidadDestino': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
+            'Observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+# Formulario para búsqueda de movimientos de stock
+class BusquedaMovimientosForm(forms.Form):
+    producto = forms.ModelChoiceField(
+        queryset=Producto.objects.all().order_by('Nombre'),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control select2'})
+    )
+    tipo = forms.ChoiceField(
+        choices=[('', 'Todos')] + list(MovimientoStock.TIPO_CHOICES),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    origen = forms.ChoiceField(
+        choices=[('', 'Todos')] + list(MovimientoStock.ORIGEN_CHOICES),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    fecha_desde = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )
+    fecha_hasta = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
+    )

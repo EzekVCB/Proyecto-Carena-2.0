@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% load static %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">
+        <i class="fas fa-cash-register mr-2"></i>Registro de Ventas
+    </h1>
+    
+    {% if not caja %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle mr-2"></i> No hay una caja abierta para este usuario. Debe abrir una caja antes de realizar ventas.
+        <a href="{% url 'apertura_caja' %}" class="btn btn-primary ml-3">
+            <i class="fas fa-door-open mr-1"></i> Abrir Caja
+        </a>
+    </div>
+    {% else %}
+    
+    <div class="row">
+        <!-- Columna izquierda: Búsqueda y tabla de productos -->
+        <div class="col-md-8">
+            <!-- Búsqueda de productos -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-search mr-2"></i>Buscar Productos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscarProducto" class="form-control" placeholder="Buscar producto...">
+                        <div class="input-group-append">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Agregamos encabezados de columnas -->
+                    <div class="row mb-2 fw-bold border-bottom pb-2">
+                        <div class="col-3">Nombre</div>
+                        <div class="col-2 text-center">Stock</div>
+                        <div class="col-2 text-end">Precio Lista</div>
+                        <div class="col-2 text-end">Precio Contado</div>
+                        <div class="col-3 text-end">Acciones</div>
+                    </div>
+                    
+                    <div class="list-group" id="lista-productos" style="height: 165px; overflow-y: scroll;">
+                        {% for producto in productos %}
+                        <div class="list-group-item py-2">
+                            <div class="row align-items-center">
+                                <div class="col-3">{{ producto.Nombre }}</div>
+                                <div class="col-2 text-center">{{ producto.Cantidad }}</div>
+                                <div class="col-2 text-end">${{ producto.PrecioDeLista }}</div>
+                                <div class="col-2 text-end">${{ producto.PrecioDeContado }}</div>
+                                <div class="col-3 text-end">
+                                    <button class="btn btn-success btn-sm btn-agregar" 
+                                            data-id="{{ producto.id }}" 
+                                            data-nombre="{{ producto.Nombre }}" 
+                                            data-precio-lista="{{ producto.PrecioDeLista }}"
+                                            data-precio-contado="{{ producto.PrecioDeContado }}"
+                                            data-stock="{{ producto.Cantidad }}">
+                                        <i class="fas fa-plus-circle"></i> Agregar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabla de productos seleccionados -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-shopping-cart mr-2"></i>Productos Seleccionados
+                    </h6>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-success me-2" onclick="cambiarTodosAPrecioContado()">
+                            <i class="fas fa-dollar-sign"></i> Todos a Precio Contado
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning" onclick="cambiarTodosAPrecioLista()">
+                            <i class="fas fa-dollar-sign"></i> Todos a Precio Lista
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="formVenta" action="{% url 'ventas' %}" method="post">
+                        {% csrf_token %}
+                        <div id="productosSeleccionados">
+                            <!-- Aquí se agregarán los inputs hidden con los productos seleccionados -->
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="tablaCarrito">
+                                <thead class="thead-dark">
+                                    <tr class="text-center">
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Precio</th>
+                                        <th>Subtotal</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- La tabla comienza vacía y se llenará dinámicamente con JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Columna derecha: Resumen de venta -->
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-success text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i>Resumen de Venta
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Selector de Cliente -->
+                    <div class="form-group">
+                        <label for="cliente_id"><strong>Cliente:</strong></label>
+                        <div class="input-group">
+                            <select id="cliente_id" name="cliente_id" class="form-control">
+                                <option value="">Consumidor Final</option>
+                                {% for cliente in clientes %}
+                                <option value="{{ cliente.id }}">
+                                    {{ cliente.Nombre }} {% if cliente.Apellido %}{{ cliente.Apellido }}{% endif %} {% if cliente.DNI %}({{ cliente.DNI }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="input-group-append">
+                                <a href="#ClienteModal" class="btn btn-primary" data-toggle="modal">
+                                    <i class="fas fa-user-plus"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fecha de Comprobante -->
+                    <div class="form-group">
+                        <label for="fecha_comprobante"><strong>Fecha:</strong></label>
+                        <input type="date" id="fecha_comprobante" name="fecha_comprobante" class="form-control" value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                    
+                    <!-- Número de Comprobante -->
+                    <div class="form-group">
+                        <label for="numero_comprobante"><strong>Número de Comprobante:</strong></label>
+                        <input type="text" id="numero_comprobante" name="numero_comprobante" class="form-control" 
+                         placeholder="Se generará automáticamente" value="{{ ultimo_comprobante }}">
+                        <small class="form-text text-muted">Puede editarlo o dejarlo vacío para generación automática.</small>
+                    </div>
+                    
+                    <!-- Tipo de Ticket -->
+                    <div class="form-group">
+                        <label><strong>Imprimir Ticket:</strong></label>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="imprimir_si" name="imprimir_ticket" class="custom-control-input" value="si" checked>
+                            <label class="custom-control-label" for="imprimir_si">Sí</label>
+                        </div>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="imprimir_no" name="imprimir_ticket" class="custom-control-input" value="no">
+                            <label class="custom-control-label" for="imprimir_no">No</label>
+                        </div>
+                    </div>
+                    
+                    <h4 class="font-weight-bold mt-3">Total: <span id="totalVenta" class="float-right">$0.00</span></h4>
+                    
+                    <hr>
+                    
+                    <!-- Medios de Pago - Simplificado -->
+                    <div class="form-group">
+                        <label><strong>Medios de Pago:</strong></label>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="medio_pago_principal"><strong>Medio Principal:</strong></label>
+                                <select id="medio_pago_principal" name="medio_pago_principal" class="form-control">
+                                    <option value="">Seleccione un medio</option>
+                                    {% for medio in medios_pago %}
+                                    <option value="{{ medio.id }}" {% if medio.Nombre|lower == 'efectivo' %}selected{% endif %}>{{ medio.Nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="monto_principal"><strong>Monto:</strong></label>
+                                <input type="number" id="monto_principal" name="monto_principal" class="form-control" 
+                                       min="0" step="0.01" placeholder="0.00" onchange="actualizarMontoSecundario()">
+                                <input type="hidden" id="monto_principal_display" value="0.00">
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="usar_segundo_medio" onchange="toggleSegundoMedio()">
+                            <label class="form-check-label" for="usar_segundo_medio">
+                                Usar segundo medio de pago
+                            </label>
+                        </div>
+                        
+                        <div id="segundo_medio_container" class="d-none">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="medio_pago_secundario"><strong>Medio Secundario:</strong></label>
+                                    <select id="medio_pago_secundario" name="medio_pago_secundario" class="form-control">
+                                        <option value="">Seleccione un medio</option>
+                                        {% for medio in medios_pago %}
+                                        <option value="{{ medio.id }}">{{ medio.Nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="monto_secundario"><strong>Monto:</strong></label>
+                                    <input type="number" id="monto_secundario" name="monto_secundario" class="form-control" 
+                                           min="0" step="0.01" placeholder="0.00" onchange="actualizarMontoPrincipal()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="btnFinalizarVenta" class="btn btn-success btn-block mt-4" onclick="return finalizarVentaDirecto()" disabled>
+                        <i class="fas fa-check-circle mr-2"></i>Finalizar Venta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para agregar nuevo cliente -->
+<div class="modal fade" id="ClienteModal" tabindex="-1" role="dialog" aria-labelledby="clienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="clienteModalLabel">Agregar Nuevo Cliente</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevoCliente">
+                    <div class="form-group">
+                        <label for="nombre_cliente">Nombre:</label>
+                        <input type="text" class="form-control" id="nombre_cliente" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="apellido_cliente">Apellido:</label>
+                        <input type="text" class="form-control" id="apellido_cliente" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dni_cliente">DNI:</label>
+                        <input type="text" class="form-control" id="dni_cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="telefono_cliente">Teléfono:</label>
+                        <input type="text" class="form-control" id="telefono_cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="email_cliente">Email:</label>
+                        <input type="email" class="form-control" id="email_cliente">
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion_cliente">Dirección:</label>
+                        <input type="text" class="form-control" id="direccion_cliente">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarCliente">Guardar Cliente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mostrar resultado de venta -->
+<div class="modal fade" id="resultadoVentaModal" tabindex="-1" role="dialog" aria-labelledby="resultadoVentaModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resultadoVentaModalLabel">Resultado de la Venta</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="resultadoVentaModalBody">
+                <!-- El contenido se llenará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">Aceptar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Incluir los archivos JavaScript externos -->
+<script src="{% static 'js/ventas.js' %}"></script>
+<script src="{% static 'js/finalizar-venta.js' %}"></script>
+
+<!-- Script para verificar si hay mensaje de venta exitosa -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Obtener parámetros de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const ventaExitosa = urlParams.get('venta_exitosa');
+        
+        if (ventaExitosa) {
+            // Mostrar modal de éxito
+            const modalBody = document.getElementById('resultadoVentaModalBody');
+            modalBody.innerHTML = `
+                <div class="text-center">
+                    <i class="fas fa-check-circle text-success" style="font-size: 64px;"></i>
+                    <h4 class="mt-3">¡Venta Exitosa!</h4>
+                    <p class="mt-3">La venta #${ventaExitosa} ha sido registrada correctamente.</p>
+                </div>
+            `;
+            $('#resultadoVentaModal').modal('show');
+            
+            // Limpiar parámetros de URL después de mostrar el modal
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
+        // Verificar si hay mensajes de error en la sesión (Django messages)
+        // Esto se maneja automáticamente por el sistema de mensajes de Django
+    });
+</script>
+{% endblock %}

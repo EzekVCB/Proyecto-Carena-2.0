@@ -173,7 +173,7 @@ class DetalleVentaInline(admin.TabularInline):
     model = DetalleVenta
 
 class VentaAdmin(admin.ModelAdmin):
-    list_display = ('Fecha', 'NumeroComprobate', 'Cliente', 'MedioDePago', 'ImporteTotal')
+    list_display = ('Fecha', 'NumeroComprobate', 'Cliente', 'ImporteTotal')
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -224,7 +224,7 @@ class DetalleCompraInline(admin.TabularInline):
     model = DetalleCompra
     
 class CompraAdmin(admin.ModelAdmin):
-    list_display = ('Fecha', 'Proveedor', 'ImporteTotal')
+    list_display = ('Fecha', 'Proveedor', 'ImporteTotal', 'Estado', 'MedioDePago', 'FechaPago')
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -257,5 +257,8 @@ admin.site.register(MedioDePago, MedioDePagoAdmin)
 admin.site.register(Venta, VentaAdmin)
 admin.site.register(Presupuesto, PresupuestoAdmin)
 admin.site.register(Compra, CompraAdmin)
+
+# Registrar el nuevo modelo PagoVenta
+admin.site.register(PagoVenta)
 
 
