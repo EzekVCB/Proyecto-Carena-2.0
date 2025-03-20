@@ -43,4 +43,24 @@ urlpatterns = [
     path('reservas/crear/', views.crear_reserva, name='crear_reserva'),
     path('reservas/<int:reserva_id>/cancelar/', views.cancelar_reserva, name='cancelar_reserva'),
     path('reservas/<int:reserva_id>/utilizar/', views.utilizar_reserva, name='utilizar_reserva'),
+    
+    # URLs para gestión de compras
+    path('compras/', views.compras_view, name='compras'),
+    path('lista-compras/', views.lista_compras, name='lista_compras'),
+    path('detalles-compra/', views.detalles_compra, name='detalles_compra'),
+    path('actualizar-pago-compra/', views.actualizar_pago_compra, name='actualizar_pago_compra'),
+    path('registrar-pago/', views.registrar_pago, name='registrar_pago'),
+    path('compras/editar/', views.editar_compra, name='editar_compra'),
+    path('compras/obtener-detalles/', views.obtener_detalles_compra, name='obtener_detalles_compra'),
+    path('compras/eliminar/', views.eliminar_compra, name='eliminar_compra'),
+    
+    # Endpoints para obtener datos mediante AJAX
+    path('get-subcategorias/', views.get_subcategorias, name='get_subcategorias'),
+    path('add_subcategoria/', views.add_subcategoria_view, name='AddSubcategoria'),
+    path('get_marcas/', views.get_marcas, name='get_marcas'),
+    path('get_proveedores/', views.get_proveedores, name='get_proveedores'),
+    path('get_unidades/', views.get_unidades, name='get_unidades'),
+    path('get_producto/', views.get_producto, name='get_producto'),
+    path('add_marca/', views.add_marca_view, name='AddMarca'),
+    path('add_unidad/', views.add_unidad_view, name='AddUnidad'),
 ]

@@ -1116,6 +1116,481 @@ def utilizar_reserva(request, reserva_id):
     
     return redirect('lista_reservas')
 
+# Función para obtener subcategorías según la categoría seleccionada
+def get_subcategorias(request):
+    categoria_id = request.GET.get('categoria_id')
+    subcategorias = []
+    categorias = list(Categoria.objects.all().values('id', 'Nombre'))
+    
+    if categoria_id:
+        try:
+            subcategorias = list(SubCategoria.objects.filter(Categoria_id=categoria_id).values('id', 'Nombre'))
+        except Exception as e:
+            print(f"Error al obtener subcategorías: {str(e)}")
+    
+    return JsonResponse({
+        'subcategorias': subcategorias,
+        'categorias': categorias
+    })
+
+# Función para agregar subcategorías
+def add_subcategoria_view(request):
+    if request.method == "POST":
+        try:
+            categoria = Categoria.objects.get(pk=request.POST.get('Categoria'))
+            nombre = request.POST.get('Nombre')
+            subcategoria = SubCategoria.objects.create(
+                Nombre=nombre,
+                Categoria=categoria
+            )
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'id': subcategoria.id,
+                    'nombre': subcategoria.Nombre
+                })
+            messages.success(request, "Subcategoría agregada exitosamente.")
+        except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': str(e)})
+            messages.error(request, f"Error al guardar la subcategoría: {str(e)}")
+    return redirect('Categorias')
+
+# Función para obtener marcas
+def get_marcas(request):
+    try:
+        marcas = list(Marca.objects.all().values('id', 'Nombre'))
+        return JsonResponse({'success': True, 'marcas': marcas})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+# Función para obtener proveedores
+def get_proveedores(request):
+    try:
+        proveedores = list(Proveedor.objects.all().values('id', 'RazonSocial'))
+        return JsonResponse({'success': True, 'proveedores': proveedores})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+# Función para obtener unidades de medida
+def get_unidades(request):
+    try:
+        unidades = list(UnidadDeMedida.objects.all().values('id', 'Nombre'))
+        return JsonResponse({'success': True, 'unidades': unidades})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+# Función para obtener datos de un producto
+def get_producto(request):
+    try:
+        producto_id = request.GET.get('id')
+        producto = Producto.objects.get(pk=producto_id)
+        
+        data = {
+            'Nombre': producto.Nombre,
+            'Descripcion': producto.Descripcion,
+            'Marca': producto.Marca.id if producto.Marca else None,
+            'Proveedor': producto.Proveedor.id if producto.Proveedor else None,
+            'categoria': producto.SubCategoria.Categoria.id if producto.SubCategoria else None,
+            'SubCategoria': producto.SubCategoria.id if producto.SubCategoria else None,
+            'PrecioCosto': float(producto.PrecioCosto),
+            'PrecioDeLista': float(producto.PrecioDeLista),
+            'PrecioDeContado': float(producto.PrecioDeContado),
+            'Cantidad': float(producto.Cantidad),
+            'CantidadMinimaSugerida': float(producto.CantidadMinimaSugerida),
+            'UnidadDeMedida': producto.UnidadDeMedida.id if producto.UnidadDeMedida else None,
+            'FechaUltimaModificacion': producto.FechaUltimaModificacion.strftime('%Y-%m-%d') if producto.FechaUltimaModificacion else None
+        }
+        
+        return JsonResponse({'success': True, 'producto': data})
+    except Producto.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Producto no encontrado'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+# Función para agregar marcas
+def add_marca_view(request):
+    if request.method == "POST":
+        try:
+            nombre = request.POST.get('Nombre')
+            marca = Marca.objects.create(Nombre=nombre)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'id': marca.id,
+                    'nombre': marca.Nombre
+                })
+            messages.success(request, "Marca agregada exitosamente.")
+        except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': str(e)})
+            messages.error(request, f"Error al guardar la marca: {str(e)}")
+    return redirect('Productos')
+
+# Función para agregar unidades de medida
+def add_unidad_view(request):
+    if request.method == "POST":
+        try:
+            nombre = request.POST.get('Nombre')
+            unidad = UnidadDeMedida.objects.create(Nombre=nombre)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'id': unidad.id,
+                    'nombre': unidad.Nombre
+                })
+            messages.success(request, "Unidad de medida agregada exitosamente.")
+        except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': str(e)})
+            messages.error(request, f"Error al guardar la unidad de medida: {str(e)}")
+    return redirect('Productos')
+
+# Funciones para gestión de compras
+def compras_view(request):
+    if request.method == "POST":
+        try:
+            # Obtener datos del formulario
+            proveedor_id = request.POST.get('proveedor')
+            fecha = request.POST.get('fecha')
+            estado = request.POST.get('estado', 'PENDIENTE')
+            medio_pago_id = request.POST.get('medio_pago')
+            fecha_pago = request.POST.get('fecha_pago')
+            
+            # Crear la compra
+            compra = Compra.objects.create(
+                Fecha=fecha,
+                Proveedor_id=proveedor_id,
+                ImporteTotal=0,
+                Estado=estado
+            )
+            
+            # Si la compra está pagada, actualizar medio de pago y fecha
+            if estado == 'PAGADA' and medio_pago_id and fecha_pago:
+                compra.MedioDePago_id = medio_pago_id
+                compra.FechaPago = fecha_pago
+                compra.save()
+            
+            # Procesar los detalles de la compra
+            total = 0
+            productos = request.POST.getlist('producto[]')
+            cantidades = request.POST.getlist('cantidad[]')
+            precios = request.POST.getlist('precio[]')
+            
+            for producto_id, cantidad, precio in zip(productos, cantidades, precios):
+                if producto_id and cantidad and precio:
+                    producto = Producto.objects.get(pk=producto_id)
+                    cantidad = int(cantidad)
+                    precio = float(precio)
+                    
+                    # Actualizar el precio de costo solo si el nuevo precio es mayor
+                    if precio > producto.PrecioCosto:
+                        producto.PrecioCosto = precio
+                        
+                        # Calcular los nuevos precios de venta (30% y 40% de ganancia)
+                        precio_lista = precio * 1.30  # 30% de ganancia
+                        precio_contado = precio * 1.40  # 40% de ganancia
+                        
+                        # Actualizar los precios del producto
+                        producto.PrecioDeLista = precio_lista
+                        producto.PrecioDeContado = precio_contado
+                        producto.FechaUltimaModificacion = fecha
+                    
+                    # Actualizar el stock
+                    producto.Cantidad += cantidad
+                    producto.save()
+                    
+                    # Crear el detalle de compra con el precio unitario
+                    DetalleCompra.objects.create(
+                        Compra=compra,
+                        Producto=producto,
+                        Cantidad=cantidad,
+                        PrecioUnitario=precio
+                    )
+                    
+                    total += precio * cantidad
+            
+            # Actualizar el total de la compra
+            compra.ImporteTotal = total
+            compra.save()
+            
+            return JsonResponse({'success': True})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    # Si es GET, mostrar el formulario
+    proveedores = Proveedor.objects.all()
+    productos = Producto.objects.all()
+    medios_pago = MedioDePago.objects.all()
+    
+    context = {
+        'proveedores': proveedores,
+        'productos': productos,
+        'medios_pago': medios_pago,
+    }
+    return render(request, 'compras.html', context)
+
+def lista_compras(request):
+    compras = Compra.objects.all().order_by('-Fecha')
+    medios_pago = MedioDePago.objects.all()
+    proveedores = Proveedor.objects.all()
+    productos = Producto.objects.all()
+    
+    return render(request, 'lista_compras.html', {
+        'compras': compras,
+        'medios_pago': medios_pago,
+        'proveedores': proveedores,
+        'productos': productos
+    })
+
+def detalles_compra(request):
+    try:
+        compra_id = request.GET.get('compra_id')
+        detalles = DetalleCompra.objects.filter(Compra_id=compra_id)
+        
+        detalles_json = []
+        for detalle in detalles:
+            detalles_json.append({
+                'producto': detalle.Producto.Nombre,
+                'cantidad': detalle.Cantidad,
+                'precio_unitario': float(detalle.PrecioUnitario) if detalle.PrecioUnitario else 0
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'detalles': detalles_json
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+def actualizar_pago_compra(request):
+    if request.method == 'POST':
+        try:
+            compra_id = request.POST.get('compra_id')
+            medio_pago_id = request.POST.get('medio_pago')
+            fecha_pago = request.POST.get('fecha_pago')
+            
+            compra = Compra.objects.get(id=compra_id)
+            compra.Estado = 'PAGADA'
+            compra.MedioDePago_id = medio_pago_id
+            compra.FechaPago = fecha_pago
+            compra.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Pago registrado exitosamente'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido'
+    })
+
+def registrar_pago(request):
+    if request.method == 'POST':
+        try:
+            medio_pago_id = request.POST.get('medio_pago')
+            fecha_pago = request.POST.get('fecha_pago')
+            
+            # Solo validamos que los datos del pago sean correctos
+            if not medio_pago_id or not fecha_pago:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Debe completar todos los campos del pago'
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Datos de pago validados correctamente'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Método no permitido'
+    })
+
+def editar_compra(request):
+    if request.method == 'POST':
+        try:
+            compra_id = request.POST.get('compra_id')
+            compra = Compra.objects.get(id=compra_id)
+            
+            # Guardar los detalles antiguos para actualizar el stock
+            detalles_antiguos = {detalle.Producto_id: detalle.Cantidad for detalle in DetalleCompra.objects.filter(Compra=compra)}
+            
+            # Actualizar datos básicos de la compra
+            compra.Fecha = request.POST.get('fecha')
+            compra.Proveedor_id = request.POST.get('proveedor')
+            compra.Estado = request.POST.get('estado')
+            
+            # Si está pagada, actualizar datos de pago
+            if compra.Estado == 'PAGADA':
+                compra.MedioDePago_id = request.POST.get('medio_pago')
+                compra.FechaPago = request.POST.get('fecha_pago')
+            
+            # Eliminar detalles antiguos
+            DetalleCompra.objects.filter(Compra=compra).delete()
+            
+            # Procesar nuevos detalles
+            total = 0
+            productos = request.POST.getlist('producto[]')
+            cantidades = request.POST.getlist('cantidad[]')
+            precios = request.POST.getlist('precio[]')
+            
+            productos_actualizados = []
+            
+            for producto_id, cantidad, precio in zip(productos, cantidades, precios):
+                if producto_id and cantidad and precio:
+                    producto = Producto.objects.get(pk=producto_id)
+                    cantidad = int(cantidad)
+                    precio = float(precio)
+                    
+                    # Restar la cantidad antigua del stock
+                    cantidad_antigua = detalles_antiguos.get(int(producto_id), 0)
+                    producto.Cantidad -= cantidad_antigua
+                    
+                    # Sumar la nueva cantidad
+                    producto.Cantidad += cantidad
+                    
+                    # Actualizar el precio de costo solo si el nuevo precio es mayor
+                    if precio > producto.PrecioCosto:
+                        producto.PrecioCosto = precio
+                        # Calcular los nuevos precios de venta
+                        precio_lista = precio * 1.30
+                        precio_contado = precio * 1.40
+                        
+                        # Actualizar los precios del producto
+                        producto.PrecioDeLista = precio_lista
+                        producto.PrecioDeContado = precio_contado
+                        producto.FechaUltimaModificacion = compra.Fecha
+                    
+                    producto.save()
+                    
+                    # Agregar información del producto actualizado
+                    productos_actualizados.append({
+                        'nombre': producto.Nombre,
+                        'stock_actual': producto.Cantidad
+                    })
+                    
+                    # Crear el nuevo detalle con el precio unitario
+                    DetalleCompra.objects.create(
+                        Compra=compra,
+                        Producto=producto,
+                        Cantidad=cantidad,
+                        PrecioUnitario=precio
+                    )
+                    
+                    total += precio * cantidad
+            
+            # Actualizar el total de la compra
+            compra.ImporteTotal = total
+            compra.save()
+            
+            return JsonResponse({
+                'success': True,
+                'stock_actualizado': True,
+                'productos_actualizados': productos_actualizados
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+def obtener_detalles_compra(request):
+    try:
+        compra_id = request.GET.get('compra_id')
+        if not compra_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'No se proporcionó ID de compra'
+            })
+
+        compra = Compra.objects.get(id=compra_id)
+        detalles = DetalleCompra.objects.filter(Compra=compra)
+        
+        detalles_json = []
+        for detalle in detalles:
+            detalles_json.append({
+                'producto_id': detalle.Producto.id,
+                'cantidad': detalle.Cantidad,
+                'precio_unitario': float(detalle.PrecioUnitario) if detalle.PrecioUnitario else 0
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'compra': {
+                'fecha': compra.Fecha.strftime('%Y-%m-%d'),
+                'proveedor_id': compra.Proveedor.id,
+                'estado': compra.Estado,
+                'medio_pago_id': compra.MedioDePago.id if compra.MedioDePago else None,
+                'fecha_pago': compra.FechaPago.strftime('%Y-%m-%d') if compra.FechaPago else None
+            },
+            'detalles': detalles_json
+        })
+    except Compra.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'La compra no existe'
+        })
+    except Exception as e:
+        print(f"Error en obtener_detalles_compra: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Error al obtener los detalles: {str(e)}'
+        })
+
+def eliminar_compra(request):
+    if request.method == 'POST':
+        try:
+            import json
+            data = json.loads(request.body)
+            compra_id = data.get('compra_id')
+            compra = Compra.objects.get(id=compra_id)
+            
+            # Obtener los detalles de la compra antes de eliminarla
+            detalles = DetalleCompra.objects.filter(Compra=compra)
+            productos_actualizados = []
+            
+            # Actualizar el stock de cada producto
+            for detalle in detalles:
+                producto = detalle.Producto
+                # Restar la cantidad del stock ya que se está eliminando la compra
+                producto.Cantidad -= detalle.Cantidad
+                producto.save()
+                productos_actualizados.append({
+                    'nombre': producto.Nombre,
+                    'stock_actual': producto.Cantidad
+                })
+            
+            # Eliminar la compra
+            compra.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'stock_actualizado': True,
+                'productos_actualizados': productos_actualizados
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
 
 
 

@@ -224,7 +224,7 @@ class DetalleCompraInline(admin.TabularInline):
     model = DetalleCompra
     
 class CompraAdmin(admin.ModelAdmin):
-    list_display = ('Fecha', 'Proveedor', 'ImporteTotal')
+    list_display = ('Fecha', 'Proveedor', 'ImporteTotal', 'Estado', 'MedioDePago', 'FechaPago')
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [

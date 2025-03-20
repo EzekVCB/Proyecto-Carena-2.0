@@ -269,18 +269,28 @@ class DetallePresupuesto(models.Model):
     def __str__(self):
         return f"{self.Presupuesto} - {self.Producto} - {self.Cantidad}"
 
+ESTADOS_COMPRA = [
+    ('PENDIENTE', 'Pendiente'),
+    ('PAGADA', 'Pagada'),
+]
+
 class Compra(models.Model):
     Fecha = models.DateField(null=False)
     Proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, default=None, null=True)
-    detalleCompra = models.ManyToManyField(Producto, through="DetalleCompra")
+    DetalleCompra = models.ManyToManyField(Producto, through="DetalleCompra")
     ImporteTotal = models.DecimalField(null=False, max_digits=10, decimal_places=2)
+    Estado = models.CharField(max_length=20, choices=ESTADOS_COMPRA, default='pendiente')
+    MedioDePago = models.ForeignKey(MedioDePago, on_delete=models.SET_NULL, null=True, blank=True)  
+    FechaPago = models.DateField(null=True, blank=True)
+    
     def __str__(self):
-        return str(self.Fecha)
+        return f"{self.Fecha} - {self.Estado}"
 
 class DetalleCompra(models.Model):
     Compra = models.ForeignKey(Compra, on_delete=models.CASCADE, default=None, null=True)
     Producto = models.ForeignKey(Producto, on_delete=models.CASCADE, default=None, null=True)
     Cantidad = models.IntegerField(default=None, null=True)
+    PrecioUnitario = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     def __str__(self):
         return f"{self.Compra} - {self.Producto} - {self.Cantidad}"
 

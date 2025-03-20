@@ -1,5 +1,5 @@
 from django import forms
-from .models import Proveedor, Cliente, Producto, Categoria, Venta, PagoVenta, MovimientoStock
+from .models import Proveedor, Cliente, Producto, Categoria, Venta, PagoVenta, MovimientoStock, SubCategoria
 from .models import FraccionamientoProducto
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
@@ -63,6 +63,12 @@ class EditProveedorForm(forms.ModelForm):
         }
 
 class AddProductoForm(forms.ModelForm):
+    categoria = forms.ModelChoiceField(
+        queryset=Categoria.objects.all(),
+        label='Categoría',
+        widget=forms.Select(attrs={'class': 'form-control', 'id': 'id_categoria'})
+    )
+    
     class Meta:
         model = Producto
         fields = [
@@ -85,6 +91,20 @@ class AddProductoForm(forms.ModelForm):
             'PrecioDeLista': 'Precio de Lista',
             'PrecioDeContado': 'Precio de Contado',
         }
+        widgets = {
+            'SubCategoria': forms.Select(attrs={'class': 'form-control', 'id': 'id_subcategoria'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['SubCategoria'].queryset = SubCategoria.objects.none()
+        
+        if 'categoria' in self.data:
+            try:
+                categoria_id = int(self.data.get('categoria'))
+                self.fields['SubCategoria'].queryset = SubCategoria.objects.filter(Categoria_id=categoria_id)
+            except (ValueError, TypeError):
+                pass
 
 class EditProductoForm(forms.ModelForm):
     class Meta:

@@ -8,6 +8,21 @@
 <link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
 <script src="{% static 'index/js/b4.js' %}"></script>
 
+<script>
+function editarProveedor(id, razonSocial, cuit, tel, email, direccion) {
+    $('#EditarPersonalModal #id_personal_editar').val(id);
+    $('#EditarPersonalModal #id_RazonSocial').val(razonSocial);
+    $('#EditarPersonalModal #id_CUIT').val(cuit);
+    $('#EditarPersonalModal #id_Tel').val(tel);
+    $('#EditarPersonalModal #id_Email').val(email);
+    $('#EditarPersonalModal #id_Direccion').val(direccion);
+}
+
+function eliminarPersonal(id) {
+    $('#EliminarPersonalModal #id_personal_eliminar').val(id);
+}
+</script>
+
 <div id="AgregarPersonalModal" class="modal" style="overflow: scroll;">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -49,33 +64,30 @@
             <div class="modal-body bg-dark text-white">
                 <form method="POST" action="{% url 'EditProveedor' %}" enctype="multipart/form-data">
                     {% csrf_token %}
-                    <input type="hidden" id="id_personal_editar" name="id_personal_editar" value="{{ form_editar.instance.id }}">
+                    <input type="hidden" id="id_personal_editar" name="id_personal_editar">
 
                     <!-- Los campos de formulario del ModelForm -->
                     <div class="form-group">
-                        <label for="nombre_editar">{{ form_editar.Nombre.label }}</label>
-                        {{ form_editar.Nombre|add_class:"form-control" }}
+                        <label for="id_RazonSocial">{{ form_editar.RazonSocial.label }}</label>
+                        <input type="text" class="form-control" id="id_RazonSocial" name="RazonSocial">
                     </div>
                     <div class="form-group">
-                        <label for="apellido_editar">{{ form_editar.Apellido.label }}</label>
-                        {{ form_editar.Apellido|add_class:"form-control" }}
+                        <label for="id_CUIT">{{ form_editar.CUIT.label }}</label>
+                        <input type="text" class="form-control" id="id_CUIT" name="CUIT">
                     </div>
                     <div class="form-group">
-                        <label for="dni_editar">{{ form_editar.DNI.label }}</label>
-                        {{ form_editar.DNI|add_class:"form-control" }}
+                        <label for="id_Tel">{{ form_editar.Tel.label }}</label>
+                        <input type="text" class="form-control" id="id_Tel" name="Tel">
                     </div>
                     <div class="form-group">
-                        <label for="telefono_editar">{{ form_editar.Telefono.label }}</label>
-                        {{ form_editar.Telefono|add_class:"form-control" }}
+                        <label for="id_Email">{{ form_editar.Email.label }}</label>
+                        <input type="email" class="form-control" id="id_Email" name="Email">
                     </div>
                     <div class="form-group">
-                        <label for="direccion_editar">{{ form_editar.Direccion.label }}</label>
-                        {{ form_editar.Direccion|add_class:"form-control" }}
+                        <label for="id_Direccion">{{ form_editar.Direccion.label }}</label>
+                        <input type="text" class="form-control" id="id_Direccion" name="Direccion">
                     </div>
-                    <div class="form-group">
-                        <label for="email_editar">{{ form_editar.Email.label }}</label>
-                        {{ form_editar.Email|add_class:"form-control" }}
-                    </div>
+                    
 
                     <!-- Mostrar errores de cada campo -->
                     {% for field in form_editar %}
@@ -145,24 +157,32 @@
             <table class="table table-hover table-primary" id="myTable">
                 <thead>
                     <tr>
-                        <th>Apellido</th>
-                        <th>Nombre</th>
+                        <th>Razon Social</th>
+                        <th>CUIT</th>
                         <th>Telefono</th>
+                        <th>Email</th>
                     </tr>
                 </thead>
                 <tbody class="text-dark">
-                    {% for i in Proveedores %}
+                    {% for i in proveedores %}
                     <tr>
-                        <td>{{i.Apellido}}</td>
-                        <td>{{i.Nombre}}</td>
-                        <td>{{i.Telefono}}</td>
+                        <td>{{i.RazonSocial}}</td>
+                        <td>{{i.CUIT}}</td>
+                        <td>{{i.Tel}}</td>
+                        <td>{{i.Email}}</td>
                         <td>
-                            <button onclick="editarPersonal('{{i.id}}','{{i.Nombre}}', '{{i.Apellido}}', '{{i.DNI}}', '{{i.Telefono}}', '{{i.Direccion}}', '{{i.Email}}')" class="btn btn-dark-outline btn-sm" data-toggle="modal"
-                                href="#EditarPersonalModal"><img src="{% static 'index/img/editar.png' %}" alt="Error"
-                                    width="30"></button>
-                            <button onclick="eliminarPersonal('{{i.id}}')" class="btn btn-dark-outline btn-sm"
-                                data-toggle="modal" href="#EliminarPersonalModal"><img
-                                    src="{% static 'index/img/delete.png' %}" alt="Error" width="30"></button>
+                            <button onclick="editarProveedor('{{i.id}}','{{i.RazonSocial}}', '{{i.CUIT}}', '{{i.Tel}}', '{{i.Email}}', '{{i.Direccion}}')" 
+                                class="btn btn-dark-outline btn-sm" 
+                                data-toggle="modal"
+                                href="#EditarPersonalModal">
+                                <img src="{% static 'index/img/editar.png' %}" alt="Error" width="30">
+                            </button>
+                            <button onclick="eliminarPersonal('{{i.id}}')" 
+                                class="btn btn-dark-outline btn-sm"
+                                data-toggle="modal" 
+                                href="#EliminarPersonalModal">
+                                <img src="{% static 'index/img/delete.png' %}" alt="Error" width="30">
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}

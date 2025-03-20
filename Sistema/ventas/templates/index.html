@@ -93,7 +93,7 @@
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-md-3 col-6 mb-3">
-                            <a href="" class="btn btn-lg btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                            <a href="{% url 'ventas' %}" class="btn btn-lg btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
                                 <i class="fas fa-cash-register fa-3x mb-2"></i>
                                 <span>Nueva Venta</span>
                             </a>
@@ -111,9 +111,15 @@
                             </a>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
-                            <a href="" class="btn btn-lg btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                                <i class="fas fa-chart-bar fa-3x mb-2"></i>
-                                <span>Reportes</span>
+                            <a href="{% url 'compras' %}" class="btn btn-lg btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                                <i class="fas fa-truck fa-3x mb-2"></i>
+                                <span>Nueva Compra</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <a href="{% url 'lista_compras' %}" class="btn btn-lg btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                                <i class="fas fa-list-alt fa-3x mb-2"></i>
+                                <span>Lista de Compras</span>
                             </a>
                         </div>
                     </div>
@@ -192,7 +198,7 @@
                                 <tr>
                                     <td>{{ producto.Nombre }}</td>
                                     <td>{{ producto.Cantidad }}</td>
-                                    <td>10</td>  <!-- Valor fijo hasta que agregues el campo -->
+                                    <td>{{ producto.CantidadMinimaSugerida }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>

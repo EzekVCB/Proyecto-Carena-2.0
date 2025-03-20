@@ -16,12 +16,24 @@
             </div>
             <div class="modal-body bg-dark text-white">
                 <form method="POST" action="{% url 'AddCategoria' %}" enctype="multipart/form-data">{% csrf_token %}
-                    {% for field in form_personal %}
-                    <p>{{field.label}} <br>
-                        {{field|add_class:"form-control text-dark"}}</p>
-                    {% for error in field.errors %}
+                    <div class="form-group">
+                        <label>{{form_personal.Nombre.label}}</label>
+                        {{form_personal.Nombre|add_class:"form-control text-dark"}}
+                    </div>
+
+                    <!-- Sección de subcategorías -->
+                    <div id="subcategorias-container">
+                        <!-- Aquí se agregarán dinámicamente las subcategorías -->
+                    </div>
+
+                    <div class="text-left mt-3">
+                        <button type="button" class="btn btn-info" onclick="agregarSubcategoria()">
+                            <i class="fas fa-plus"></i> Agregar Subcategoría
+                        </button>
+                    </div>
+
+                    {% for error in form_personal.errors %}
                     <p class="alarma">{{error}}</p>
-                    {% endfor %}
                     {% endfor %}
                     {% for error in form.non_field_errors %}
                     <p class="alarma">{{error}}</p>
@@ -44,46 +56,44 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-info">
-                <h5 class="modal-title text-dark">Editar</h5>
+                <h5 class="modal-title text-dark">Editar Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body bg-dark text-white">
-                <form method="POST" action="{% url 'EditCategoria' %}" enctype="multipart/form-data">
+                <form method="POST" action="{% url 'EditCategoria' %}" id="form-editar">
                     {% csrf_token %}
-                    <input type="hidden" id="id_categoria_editar" name="id_categoria_editar" value="{{ form_editar.instance.id }}">
-
-                    <!-- Los campos de formulario del ModelForm -->
+                    <input type="hidden" id="id_categoria_editar" name="id_categoria_editar">
+                    
                     <div class="form-group">
                         <label for="nombre_editar">{{ form_editar.Nombre.label }}</label>
                         {{ form_editar.Nombre|add_class:"form-control" }}
                     </div>
 
-                    <!-- Mostrar errores de cada campo -->
                     {% for field in form_editar %}
                         {% for error in field.errors %}
                             <div class="alert alert-danger">{{ error }}</div>
                         {% endfor %}
                     {% endfor %}
 
-                    <!-- Errores generales -->
                     {% for error in form_editar.non_field_errors %}
                         <div class="alert alert-danger">{{ error }}</div>
                     {% endfor %}
 
-            </div>
-            <div class="modal-footer bg-dark text-white">
-                <button type="button" class="btn btn-danger" data-dismiss="modal">
-                    Volver
-                </button>
-                <button type="submit" class="btn btn-success">
-                    Aceptar
-                </button>
+                    <div class="modal-footer bg-dark border-0 mt-4">
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            Guardar cambios
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
-
-
 
 <div id="EliminarCategoriaModal" class="modal">
     <div class="modal-dialog">
@@ -125,20 +135,42 @@
             <table class="table table-hover table-primary" id="myTable">
                 <thead>
                     <tr>
+                        <th style="width: 50px"></th>
                         <th>Nombre</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="text-dark">
                     {% for i in categorias %}
                     <tr>
+                        <td class="text-center">
+                            {% if i.subcategoria_set.exists %}
+                                <button class="btn btn-sm btn-info" onclick="toggleSubcategorias('{{i.id}}')">
+                                    <i id="icon-{{i.id}}" class="fas fa-plus"></i>
+                                </button>
+                            {% endif %}
+                        </td>
                         <td>{{i.Nombre}}</td>
                         <td>
                             <button onclick="editarCategoria('{{i.id}}','{{i.Nombre}}')" class="btn btn-dark-outline btn-sm" data-toggle="modal"
                                 href="#EditarCategoriaModal"><img src="{% static 'index/img/editar.png' %}" alt="Error"
                                     width="30"></button>
-                                    <button onclick="eliminarCategoria('{{i.id}}')" class="btn btn-dark-outline btn-sm"
-                                    data-toggle="modal" href="#EliminarCategoriaModal"><img
-                                    src="{% static 'index/img/delete.png' %}" alt="Error" width="30"></button>
+                            <button onclick="eliminarCategoria('{{i.id}}')" class="btn btn-dark-outline btn-sm"
+                                data-toggle="modal" href="#EliminarCategoriaModal"><img
+                                src="{% static 'index/img/delete.png' %}" alt="Error" width="30"></button>
+                        </td>
+                    </tr>
+                    <tr id="subcategorias-{{i.id}}" style="display: none;">
+                        <td></td>
+                        <td colspan="2" class="bg-light">
+                            <div style="margin-left: 30px; border-left: 3px solid #17a2b8; padding-left: 15px;">
+                                {% for subcategoria in i.subcategoria_set.all %}
+                                    <div class="py-2 d-flex align-items-center">
+                                        <i class="fas fa-angle-right mr-2 text-info"></i>
+                                        <span>{{subcategoria.Nombre}}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -151,11 +183,55 @@
 {% for message in messages %}
 <script>
     Swal.fire({
-        icon: 'error',
-        title: 'Error...',
+        icon: '{% if "error" in message.tags %}error{% else %}success{% endif %}',
+        title: '{% if "error" in message.tags %}Error{% else %}Éxito{% endif %}',
         text: "{{message}}",
     })
 </script>
 {% endfor %}
 {% endif %}
+
+<script>
+function editarCategoria(id, nombre) {
+    document.getElementById('id_categoria_editar').value = id;
+    document.getElementById('nombre_editar').value = nombre;
+    $('#EditarCategoriaModal').modal('show');
+}
+
+function eliminarCategoria(id) {
+    document.getElementById('id_categoria_eliminar').value = id;
+    $('#EliminarCategoriaModal').modal('show');
+}
+
+function toggleSubcategorias(categoriaId) {
+    const row = document.getElementById('subcategorias-' + categoriaId);
+    const icon = document.getElementById('icon-' + categoriaId);
+    
+    if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+        icon.classList.remove('fa-plus');
+        icon.classList.add('fa-minus');
+    } else {
+        row.style.display = 'none';
+        icon.classList.remove('fa-minus');
+        icon.classList.add('fa-plus');
+    }
+}
+
+function agregarSubcategoria() {
+    const container = document.getElementById('subcategorias-container');
+    const subcategoriaDiv = document.createElement('div');
+    subcategoriaDiv.className = 'input-group mb-2';
+    subcategoriaDiv.innerHTML = `
+        <input type="text" class="form-control text-dark" name="subcategorias[]" 
+               placeholder="Nombre de la subcategoría" required>
+        <div class="input-group-append">
+            <button type="button" class="btn btn-danger" onclick="this.closest('.input-group').remove()">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(subcategoriaDiv);
+}
+</script>
 {% endblock %}
