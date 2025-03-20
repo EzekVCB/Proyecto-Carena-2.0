@@ -1,82 +1,161 @@
-{% load static %}
-{% load humanize %}
-<html lang="es">
-
+<!DOCTYPE html>
+<html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>Ticket de Venta</title>
     <style>
         @page {
-            size: 58mm 200mm;
-            margin: 0.5cm 0.5cm 0.5cm 0.5cm;
+            size: 80mm 297mm;
+            margin: 0;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.2;
+            margin: 0;
+            padding: 5mm;
+            width: 70mm;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 5mm;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 3mm;
+        }
+        .company-name {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        .company-info {
+            font-size: 9px;
+            line-height: 1.4;
+        }
+        .ticket-info {
+            margin: 3mm 0;
+            text-align: center;
+        }
+        .ticket-title {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 2mm;
+        }
+        .ticket-number {
+            font-size: 10px;
+            margin-bottom: 1mm;
+        }
+        .ticket-date {
+            font-size: 9px;
+            color: #666;
+        }
+        .items {
+            width: 100%;
+            margin: 3mm 0;
+            border-collapse: collapse;
+        }
+        .items th {
+            text-align: left;
+            font-size: 9px;
+            padding: 1mm 0;
+            border-bottom: 1px dashed #000;
+        }
+        .items td {
+            padding: 1mm 0;
+            font-size: 9px;
+        }
+        .items .quantity {
+            text-align: center;
+        }
+        .items .price, .items .subtotal {
+            text-align: right;
+        }
+        .total {
+            text-align: right;
+            margin-top: 3mm;
+            border-top: 1px dashed #000;
+            padding-top: 2mm;
+            font-weight: bold;
+        }
+        .payment-info {
+            margin: 3mm 0;
+            font-size: 9px;
+        }
+        .payment-info p {
+            margin: 1mm 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 5mm;
+            padding-top: 3mm;
+            border-top: 1px dashed #000;
+            font-size: 9px;
+            color: #666;
+        }
+        .separator {
+            border-top: 1px dashed #000;
+            margin: 2mm 0;
         }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <div class="row">
-            <div class="col-12 text-center">
-                <img src="{{empresa.imagen.url}}" alt="Logo empresa" width="30" height="3"> <br>
-                # Ticket: {{num_ticket}} <br>
-                Fecha: {{fecha}} <br>
-                <h5> <b>{{empresa.nombre}} </b></h5>
-                {{empresa.domicilio}} <br>
-                {{empresa.telefono}}<br>
-                Cliente: {{cliente}} <br>
-                <br>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12 text-center">
-                <table>
-                    <thead>
-                        <tr>
-                            <td style="width:20%"> <b>Cant.</b></td>
-                            <td style="width:60%"> <b> Producto</b> </td>
-                            <td style="width:20%"> <b>Subtotal</b>  </td>
-                        </tr>
-                    </thead>
-                    <tbody class="text-dark">
-                        {% if iva == "false" or iva == "False" %}
-                        {% for i in items %}
-                        <tr>
-                            <td>{{i.cantidad}}</td>
-                            <td>{{i.producto.descripcion}}</td>
-                            <td>{{empresa.moneda}} {{i.total|intcomma}}</td>
-
-                        </tr>
-                        {% endfor %}
-                        {% elif iva == "true" or iva == "True" %}
-                        {% for i in items %}
-                        <tr>
-                            <td>{{i.cantidad}}</td>
-                            <td>{{i.producto.descripcion}}</td>
-                            <td>{{empresa.moneda}} {{i.subtotal|intcomma}}</td>
-
-                        </tr>
-                        {% endfor %}
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12">
-                {% if iva == "true" or iva == "True" %}
-                <h5 style="text-align: right;"> <b> Subtotal: {{empresa.moneda}} {{subtotal|floatformat:"2"|intcomma}}</b></h5>
-                <h5 style="text-align: right;"> <b> Iva: {{empresa.moneda}} {{iva_suma|floatformat:"2"|intcomma}}</b></h5>
-                {% endif %}
-                <h5 style="text-align: right;"> <b> Total: {{empresa.moneda}} {{total|floatformat:"2"|intcomma}}</b></h5>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12">
-                <p style="text-align: center;">GRACIAS POR SU PREFERENCIA</P>
-            </div>
+    <div class="header">
+        <div class="company-name">{{ empresa.nombre }}</div>
+        <div class="company-info">
+            {{ empresa.direccion }}<br>
+            Tel: {{ empresa.telefono }}<br>
+            CUIT: {{ empresa.cuit }}
         </div>
     </div>
-</body>
 
-</html>
+    <div class="separator"></div>
+
+    <div class="ticket-info">
+        <div class="ticket-title">TICKET DE VENTA</div>
+        <div class="ticket-number">N° {{ venta.NumeroComprobate }}</div>
+        <div class="ticket-date">Fecha: {{ fecha }}</div>
+    </div>
+
+    <div class="separator"></div>
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th>Descripción</th>
+                <th class="quantity">Cant</th>
+                <th class="price">Precio</th>
+                <th class="subtotal">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td>{{ detalle.Producto.Nombre }}</td>
+                <td class="quantity">{{ detalle.Cantidad }}</td>
+                <td class="price">${{ detalle.PrecioUnitario }}</td>
+                <td class="subtotal">${{ detalle.Subtotal }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total">
+        TOTAL: ${{ venta.ImporteTotal }}
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="payment-info">
+        <p><strong>Formas de Pago:</strong></p>
+        {% for pago in pagos %}
+        <p>{{ pago.MedioDePago.Nombre }}: ${{ pago.Monto }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="footer">
+        <p>¡Gracias por su compra!</p>
+        <p>Conserve este ticket para cualquier reclamo</p>
+    </div>
+</body>
+</html> 

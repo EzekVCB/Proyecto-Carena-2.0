@@ -156,19 +156,6 @@
                         <small class="form-text text-muted">Puede editarlo o dejarlo vacío para generación automática.</small>
                     </div>
                     
-                    <!-- Tipo de Ticket -->
-                    <div class="form-group">
-                        <label><strong>Imprimir Ticket:</strong></label>
-                        <div class="custom-control custom-radio">
-                            <input type="radio" id="imprimir_si" name="imprimir_ticket" class="custom-control-input" value="si" checked>
-                            <label class="custom-control-label" for="imprimir_si">Sí</label>
-                        </div>
-                        <div class="custom-control custom-radio">
-                            <input type="radio" id="imprimir_no" name="imprimir_ticket" class="custom-control-input" value="no">
-                            <label class="custom-control-label" for="imprimir_no">No</label>
-                        </div>
-                    </div>
-                    
                     <h4 class="font-weight-bold mt-3">Total: <span id="totalVenta" class="float-right">$0.00</span></h4>
                     
                     <hr>
@@ -292,7 +279,13 @@
                 <!-- El contenido se llenará dinámicamente -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-dismiss="modal">Aceptar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="nuevaVenta()">
+                    <i class="fas fa-plus-circle mr-2"></i>Nueva Venta
+                </button>
+                <button type="button" class="btn btn-success" onclick="imprimirTicket()">
+                    <i class="fas fa-print mr-2"></i>Imprimir Ticket
+                </button>
             </div>
         </div>
     </div>
@@ -324,9 +317,40 @@
             // Limpiar parámetros de URL después de mostrar el modal
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-        
-        // Verificar si hay mensajes de error en la sesión (Django messages)
-        // Esto se maneja automáticamente por el sistema de mensajes de Django
     });
+
+    // Función para nueva venta
+    function nuevaVenta() {
+        // Limpiar el carrito
+        productos = [];
+        total = 0;
+        
+        // Actualizar la vista
+        actualizarCarrito();
+        
+        // Cerrar el modal
+        $('#resultadoVentaModal').modal('hide');
+        
+        // Limpiar campos del formulario
+        document.getElementById('cliente_id').value = '';
+        document.getElementById('fecha_comprobante').value = new Date().toISOString().split('T')[0];
+        document.getElementById('numero_comprobante').value = '';
+        document.getElementById('medio_pago_principal').value = '';
+        document.getElementById('monto_principal').value = '';
+        document.getElementById('usar_segundo_medio').checked = false;
+        document.getElementById('segundo_medio_container').classList.add('d-none');
+        document.getElementById('monto_secundario').value = '';
+    }
+
+    // Función para imprimir ticket
+    function imprimirTicket() {
+        // Obtener el número de comprobante del modal
+        const modalBody = document.getElementById('resultadoVentaModalBody');
+        const textoCompleto = modalBody.querySelector('p').textContent;
+        const numeroComprobante = textoCompleto.match(/#([A-Z0-9-]+)/)[1];
+        
+        // Abrir el PDF en una nueva ventana usando el nombre de la URL
+        window.open(`{% url 'imprimir_ticket' '0' %}`.replace('0', numeroComprobante), '_blank');
+    }
 </script>
 {% endblock %}

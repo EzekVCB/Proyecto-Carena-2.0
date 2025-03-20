@@ -329,7 +329,6 @@ def ventas_view(request):
             medio_pago_secundario_id = request.POST.get('medio_pago_secundario')
             monto_secundario = request.POST.get('monto_secundario')
             fecha_comprobante = request.POST.get('fecha_comprobante')
-            tipo_ticket = request.POST.get('imprimir_ticket', 'no')
             
             print(f"Productos IDs: {productos_ids}")
             print(f"Cantidades: {cantidades}")
@@ -371,9 +370,8 @@ def ventas_view(request):
                 else:
                     nuevo_numero = 1
                 
-                # Agregar prefijo según tipo de ticket
-                prefijo = "F" if tipo_ticket == "fiscal" else "N"
-                venta.NumeroComprobate = f"{prefijo}-{nuevo_numero:05d}"
+                # Usar prefijo N para comprobantes no fiscales
+                venta.NumeroComprobate = f"N-{nuevo_numero:05d}"
                 
                 # Calcular el total de la venta
                 total_venta = 0
@@ -1670,6 +1668,54 @@ def delete_subcategoria_view(request):
                 })
             messages.error(request, f"Error al eliminar la subcategoría: {str(e)}")
     return redirect('Categorias')
+
+@login_required
+def imprimir_ticket_view(request, numero_comprobante):
+    try:
+        # Obtener la venta
+        venta = Venta.objects.get(NumeroComprobate=numero_comprobante)
+        
+        # Obtener los detalles de la venta
+        detalles = DetalleVenta.objects.filter(Venta=venta)
+        
+        # Obtener los pagos
+        pagos = PagoVenta.objects.filter(Venta=venta)
+        
+        # Configurar el contexto
+        context = {
+            'venta': venta,
+            'detalles': detalles,
+            'pagos': pagos,
+            'fecha': venta.Fecha.strftime('%d/%m/%Y %H:%M'),
+            'empresa': {
+                'nombre': 'Fragancia Hogar',
+                'direccion': 'Av. Principal 123',
+                'telefono': '123-456-7890',
+                'cuit': '30-12345678-9'
+            }
+        }
+        
+        # Cargar la plantilla
+        template = get_template('ticket.html')
+        
+        # Generar el HTML
+        html = template.render(context)
+        
+        # Configurar la respuesta
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="ticket_{numero_comprobante}.pdf"'
+        
+        # Generar el PDF
+        HTML(string=html).write_pdf(response)
+        
+        return response
+        
+    except Venta.DoesNotExist:
+        messages.error(request, 'No se encontró la venta especificada')
+        return redirect('ventas')
+    except Exception as e:
+        messages.error(request, f'Error al generar el ticket: {str(e)}')
+        return redirect('ventas')
 
 
 

@@ -442,12 +442,10 @@ function finalizarVenta(event) {
     console.log("Agregando campos adicionales al formulario...");
     const clienteId = document.getElementById('cliente_id').value;
     const fechaComprobante = document.getElementById('fecha_comprobante').value;
-    const imprimirTicket = document.querySelector('input[name="imprimir_ticket"]:checked').value;
     const numeroComprobante = document.getElementById('numero_comprobante').value;
     
     console.log("Cliente ID:", clienteId);
     console.log("Fecha comprobante:", fechaComprobante);
-    console.log("Imprimir ticket:", imprimirTicket);
     console.log("Número comprobante:", numeroComprobante);
     
     // Crear inputs hidden para los nuevos campos
@@ -462,12 +460,6 @@ function finalizarVenta(event) {
     inputFecha.name = 'fecha_comprobante';
     inputFecha.value = fechaComprobante;
     productosSeleccionados.appendChild(inputFecha);
-    
-    const inputTicket = document.createElement('input');
-    inputTicket.type = 'hidden';
-    inputTicket.name = 'imprimir_ticket';
-    inputTicket.value = imprimirTicket;
-    productosSeleccionados.appendChild(inputTicket);
     
     const inputComprobante = document.createElement('input');
     inputComprobante.type = 'hidden';
