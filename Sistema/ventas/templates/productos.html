@@ -165,13 +165,38 @@
                     // Limpiar el formulario
                     document.getElementById('formCategoria').reset();
                     
-                    // Actualizar los selectores de categoría
-                    actualizarCategorias(function() {
-                        // Después de actualizar, seleccionar la nueva categoría
-                        $('#id_categoria').val(response.id);
-                        // Limpiar las subcategorías
+                    // Actualizar el selector de categorías en el formulario principal
+                    var categoriaSelect = $('#id_categoria');
+                    var currentValue = categoriaSelect.val();
+                    
+                    categoriaSelect.empty();
+                    categoriaSelect.append('<option value="">---------</option>');
+                    
+                    // Actualizar también el selector en el modal de subcategorías
+                    var categoriaModalSelect = $('#categoriaSelect');
+                    categoriaModalSelect.empty();
+                    categoriaModalSelect.append('<option value="">Seleccione una categoría</option>');
+                    
+                    // Agregar la nueva categoría y las existentes a ambos selectores
+                    if (response.categorias) {
+                        response.categorias.forEach(function(categoria) {
+                            categoriaSelect.append(
+                                '<option value="' + categoria.id + '">' +
+                                categoria.Nombre + '</option>'
+                            );
+                            categoriaModalSelect.append(
+                                '<option value="' + categoria.id + '">' +
+                                categoria.Nombre + '</option>'
+                            );
+                        });
+                    }
+                    
+                    // Seleccionar la nueva categoría
+                    if (response.nueva_categoria_id) {
+                        categoriaSelect.val(response.nueva_categoria_id);
+                        // Limpiar las subcategorías ya que es una nueva categoría
                         $('#id_subcategoria').empty().append('<option value="">---------</option>');
-                    });
+                    }
                     
                     // Cerrar el modal
                     $('#AgregarCategoriaModal').modal('hide');
@@ -183,13 +208,19 @@
                         text: 'Categoría creada correctamente',
                         timer: 1500
                     });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al crear la categoría'
+                    });
                 }
             },
             error: function(xhr, errmsg, err) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Error al crear la categoría'
+                    text: 'Error al crear la categoría. Por favor, verifique los datos ingresados.'
                 });
             }
         });
@@ -197,6 +228,16 @@
 
     function guardarSubcategoria() {
         var formData = new FormData(document.getElementById('formSubcategoria'));
+        var categoriaId = $('#categoriaSelect').val();
+        
+        if (!categoriaId) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Debe seleccionar una categoría'
+            });
+            return;
+        }
         
         $.ajax({
             url: '{% url "AddSubcategoria" %}',
@@ -206,14 +247,28 @@
             contentType: false,
             success: function(response) {
                 if (response.success) {
-                    // Obtener la categoría seleccionada
-                    var categoriaId = $('#categoriaSelect').val();
-                    
                     // Limpiar el formulario
                     document.getElementById('formSubcategoria').reset();
                     
                     // Actualizar el selector de subcategorías
-                    $('#id_categoria').val(categoriaId).trigger('change');
+                    var subcategoriaSelect = $('#id_subcategoria');
+                    subcategoriaSelect.empty();
+                    subcategoriaSelect.append('<option value="">---------</option>');
+                    
+                    // Agregar todas las subcategorías
+                    if (response.subcategorias) {
+                        response.subcategorias.forEach(function(subcategoria) {
+                            subcategoriaSelect.append(
+                                '<option value="' + subcategoria.id + '">' +
+                                subcategoria.Nombre + '</option>'
+                            );
+                        });
+                    }
+                    
+                    // Seleccionar la nueva subcategoría si está disponible
+                    if (response.subcategoria && response.subcategoria.id) {
+                        subcategoriaSelect.val(response.subcategoria.id);
+                    }
                     
                     // Cerrar el modal
                     $('#AgregarSubcategoriaModal').modal('hide');
@@ -222,8 +277,14 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'Éxito',
-                        text: 'Subcategoría creada correctamente',
+                        text: response.message || 'Subcategoría creada correctamente',
                         timer: 1500
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al crear la subcategoría'
                     });
                 }
             },
@@ -231,7 +292,7 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Error al crear la subcategoría'
+                    text: 'Error al crear la subcategoría. Por favor, verifique los datos ingresados.'
                 });
             }
         });
@@ -353,15 +414,46 @@
             contentType: false,
             success: function(response) {
                 if (response.success) {
+                    // Limpiar el formulario
                     document.getElementById('formProveedor').reset();
-                    actualizarProveedores();
+                    
+                    // Actualizar el selector de proveedores
+                    var proveedorSelect = $('#id_Proveedor');
+                    var currentValue = proveedorSelect.val();
+                    
+                    proveedorSelect.empty();
+                    proveedorSelect.append('<option value="">---------</option>');
+                    
+                    // Agregar el nuevo proveedor y los existentes
+                    if (response.proveedores) {
+                        response.proveedores.forEach(function(proveedor) {
+                            proveedorSelect.append(
+                                '<option value="' + proveedor.id + '">' +
+                                proveedor.RazonSocial + '</option>'
+                            );
+                        });
+                    }
+                    
+                    // Seleccionar el nuevo proveedor
+                    if (response.nuevo_proveedor_id) {
+                        proveedorSelect.val(response.nuevo_proveedor_id);
+                    }
+                    
+                    // Cerrar el modal
                     $('#AgregarProveedorModal').modal('hide');
                     
+                    // Mostrar mensaje de éxito
                     Swal.fire({
                         icon: 'success',
                         title: 'Éxito',
                         text: 'Proveedor creado correctamente',
                         timer: 1500
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al crear el proveedor'
                     });
                 }
             },
@@ -369,7 +461,7 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Error al crear el proveedor'
+                    text: 'Error al crear el proveedor. Por favor, verifique los datos ingresados.'
                 });
             }
         });
@@ -536,41 +628,44 @@
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                {% for field in form_producto %}
-                                    {% if field.name == 'categoria' or field.name == 'SubCategoria' %}
+                                    <!-- Campo Categoría -->
+                                    {% if form_producto.categoria %}
                                     <div class="col-md-6 mb-3">
-                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        <label for="{{ form_producto.categoria.id_for_label }}">{{ form_producto.categoria.label }}</label>
                                         <div class="input-group">
-                                            {% if field.name == 'SubCategoria' %}
-                                                {{ field|add_class:"form-control text-dark"|attr:"id:id_subcategoria" }}
-                                            {% else %}
-                                                {{ field|add_class:"form-control text-dark" }}
-                                            {% endif %}
-                                            {% if field.name == 'categoria' %}
+                                            {{ form_producto.categoria|add_class:"form-control text-dark" }}
                                             <div class="input-group-append">
                                                 <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarCategoriaModal">
                                                     <i class="fas fa-plus"></i>
                                                 </button>
                                             </div>
-                                            {% endif %}
-                                            {% if field.name == 'SubCategoria' %}
+                                        </div>
+                                        {% for error in form_producto.categoria.errors %}
+                                        <small class="text-danger">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+
+                                    <!-- Campo SubCategoría -->
+                                    {% if form_producto.SubCategoria %}
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form_producto.SubCategoria.id_for_label }}">{{ form_producto.SubCategoria.label }}</label>
+                                        <div class="input-group">
+                                            {{ form_producto.SubCategoria|add_class:"form-control text-dark"|attr:"id:id_subcategoria" }}
                                             <div class="input-group-append">
                                                 <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarSubcategoriaModal">
                                                     <i class="fas fa-plus"></i>
                                                 </button>
                                             </div>
-                                            {% endif %}
                                         </div>
-                                        {% for error in field.errors %}
+                                        {% for error in form_producto.SubCategoria.errors %}
                                         <small class="text-danger">{{ error }}</small>
                                         {% endfor %}
                                     </div>
                                     {% endif %}
-                                {% endfor %}
+                                </div>
                             </div>
-                        </div>
                     </div>
-
                     <!-- Precios -->
                     <div class="card bg-secondary mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -1090,9 +1185,10 @@
 {% for message in messages %}
 <script>
     Swal.fire({
-        icon: 'error',
-        title: 'Error...',
+        icon: 'success',
+        title: 'Éxito',
         text: "{{ message }}",
+        timer: 1500
     });
 </script>
 {% endfor %}

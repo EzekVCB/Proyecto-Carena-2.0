@@ -322,7 +322,7 @@
         const formData = new FormData(document.getElementById('compraForm'));
         
         // Establecer el estado según si se registró el pago
-        formData.append('estado', pagoRegistrado ? 'pagada' : 'pendiente');
+        formData.append('estado', pagoRegistrado ? 'PAGADA' : 'PENDIENTE');
         
         // Agregar datos del pago si se registró
         if (pagoRegistrado) {

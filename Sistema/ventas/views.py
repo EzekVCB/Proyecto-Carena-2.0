@@ -140,11 +140,31 @@ def add_proveedor_view(request):
         form = AddProveedorForm(request.POST)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, "Proveedor agregado exitosamente.")
+                proveedor = form.save()
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    # Si es una solicitud AJAX, devolver JSON
+                    proveedores = Proveedor.objects.all()
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Proveedor agregado exitosamente.',
+                        'nuevo_proveedor_id': proveedor.id,
+                        'proveedores': [{'id': p.id, 'RazonSocial': p.RazonSocial} for p in proveedores]
+                    })
+                else:
+                    messages.success(request, "Proveedor agregado exitosamente.")
             except Exception as e:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Error al guardar el proveedor: {str(e)}'
+                    })
                 messages.error(request, f"Error al guardar el proveedor: {str(e)}")
         else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Error en el formulario. Verifique los datos ingresados.'
+                })
             messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
     return redirect('Proveedores')
 
@@ -233,15 +253,28 @@ def categorias_view(request):
 
 def add_categoria_view(request):
     if request.method == "POST":
-        form = AddCategoriaForm(request.POST, request.FILES)
-        if form.is_valid():
-            try:
-                form.save()
-                messages.info(request, "Categoria agregado exitosamente.")
-            except Exception as e:
-                messages.error(request, f"Error al guardar el categoria: {str(e)}")
-        else:
-            messages.error(request, "Error en el formulario. Verifique los datos ingresados.")
+        try:
+            nombre = request.POST.get('Nombre')
+            categoria = Categoria.objects.create(Nombre=nombre)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Si es una solicitud AJAX, devolver JSON con las categorías actualizadas
+                categorias = Categoria.objects.all()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Categoría agregada exitosamente.',
+                    'nueva_categoria_id': categoria.id,
+                    'categorias': [{'id': c.id, 'Nombre': c.Nombre} for c in categorias]
+                })
+            else:
+                messages.success(request, "Categoría agregada exitosamente.")
+        except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error al guardar la categoría: {str(e)}'
+                })
+            messages.error(request, f"Error al guardar la categoría: {str(e)}")
     return redirect('Categorias')
 
 def edit_categoria_view(request):
@@ -1143,18 +1176,28 @@ def add_subcategoria_view(request):
                 Nombre=nombre,
                 Categoria=categoria
             )
+            
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Obtener todas las subcategorías de la categoría seleccionada
+                subcategorias = SubCategoria.objects.filter(Categoria=categoria)
                 return JsonResponse({
                     'success': True,
-                    'id': subcategoria.id,
-                    'nombre': subcategoria.Nombre
+                    'message': 'Subcategoría creada correctamente',
+                    'subcategoria': {
+                        'id': subcategoria.id,
+                        'nombre': subcategoria.Nombre
+                    },
+                    'subcategorias': [{'id': s.id, 'Nombre': s.Nombre} for s in subcategorias]
                 })
             messages.success(request, "Subcategoría agregada exitosamente.")
         except Exception as e:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'success': False, 'error': str(e)})
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error al guardar la subcategoría: {str(e)}'
+                })
             messages.error(request, f"Error al guardar la subcategoría: {str(e)}")
-    return redirect('Categorias')
+    return redirect('Productos')
 
 # Función para obtener marcas
 def get_marcas(request):
@@ -1253,7 +1296,7 @@ def compras_view(request):
             # Obtener datos del formulario
             proveedor_id = request.POST.get('proveedor')
             fecha = request.POST.get('fecha')
-            estado = request.POST.get('estado', 'PENDIENTE')
+            estado = request.POST.get('estado', 'PENDIENTE')  # Default a 'PENDIENTE'
             medio_pago_id = request.POST.get('medio_pago')
             fecha_pago = request.POST.get('fecha_pago')
             
@@ -1262,11 +1305,11 @@ def compras_view(request):
                 Fecha=fecha,
                 Proveedor_id=proveedor_id,
                 ImporteTotal=0,
-                Estado=estado
+                Estado=estado.upper()  # Asegurar que esté en mayúsculas
             )
             
             # Si la compra está pagada, actualizar medio de pago y fecha
-            if estado == 'PAGADA' and medio_pago_id and fecha_pago:
+            if estado.upper() == 'PAGADA' and medio_pago_id and fecha_pago:
                 compra.MedioDePago_id = medio_pago_id
                 compra.FechaPago = fecha_pago
                 compra.save()
