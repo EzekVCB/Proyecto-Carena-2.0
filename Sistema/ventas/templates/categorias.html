@@ -8,154 +8,320 @@
 <link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
 <script src="{% static 'index/js/b4.js' %}"></script>
 
-<div id="AgregarCategoriaModal" class="modal" style="overflow: scroll;">
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Categorías y Subcategorías</h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#AgregarCategoriaModal">
+                            <i class="fas fa-plus"></i> Nueva Categoría
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" id="tabla-categorias">
+                            <thead>
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Subcategorías</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for categoria in categorias %}
+                                <tr>
+                                    <td>{{ categoria.Nombre }}</td>
+                                    <td>
+                                        <ul class="list-unstyled">
+                                            {% for subcategoria in categoria.subcategoria_set.all %}
+                                            <li class="mb-2">
+                                                {{ subcategoria.Nombre }}
+                                                <div class="btn-group btn-group-sm">
+                                                    <button onclick="editarSubcategoria('{{subcategoria.id}}','{{subcategoria.Nombre}}','{{subcategoria.Categoria.id}}')" 
+                                                            class="btn btn-info btn-sm" 
+                                                            data-toggle="modal" 
+                                                            data-target="#EditarSubcategoriaModal">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button onclick="eliminarSubcategoria('{{subcategoria.id}}')" 
+                                                            class="btn btn-danger btn-sm" 
+                                                            data-toggle="modal" 
+                                                            data-target="#EliminarSubcategoriaModal">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                        <button class="btn btn-outline-primary btn-sm" 
+                                                onclick="prepararNuevaSubcategoria('{{categoria.id}}')"
+                                                data-toggle="modal" 
+                                                data-target="#AgregarSubcategoriaModal">
+                                            <i class="fas fa-plus"></i> Agregar Subcategoría
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button onclick="editarCategoria('{{categoria.id}}','{{categoria.Nombre}}')" 
+                                                    class="btn btn-info" 
+                                                    data-toggle="modal" 
+                                                    data-target="#EditarCategoriaModal">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="eliminarCategoria('{{categoria.id}}')" 
+                                                    class="btn btn-danger" 
+                                                    data-toggle="modal" 
+                                                    data-target="#EliminarCategoriaModal">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar Categoría -->
+<div class="modal fade" id="AgregarCategoriaModal" tabindex="-1" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-info">
-                <h5 class="modal-title text-dark">Agregar nuevo</h5>
-            </div>
-            <div class="modal-body bg-dark text-white">
-                <form method="POST" action="{% url 'AddCategoria' %}" enctype="multipart/form-data">{% csrf_token %}
-                    {% for field in form_personal %}
-                    <p>{{field.label}} <br>
-                        {{field|add_class:"form-control text-dark"}}</p>
-                    {% for error in field.errors %}
-                    <p class="alarma">{{error}}</p>
-                    {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                    <p class="alarma">{{error}}</p>
-                    {% endfor %}
-            </div>
-            <div class="modal-footer bg-dark">
-                <button type="button" class="btn btn-danger" data-dismiss="modal">
-                    Cancelar
-                </button>
-                <button type="submit" class="btn btn-success">
-                    Agregar
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
                 </button>
             </div>
+            <form method="POST" action="{% url 'AddCategoria' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% for field in form_categoria %}
+                    <div class="form-group">
+                        <label>{{field.label}}</label>
+                        {{field|add_class:"form-control"}}
+                        {% for error in field.errors %}
+                        <div class="invalid-feedback d-block">{{error}}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
             </form>
         </div>
     </div>
 </div>
 
-<div id="EditarCategoriaModal" class="modal">
+<!-- Modal Editar Categoría -->
+<div class="modal fade" id="EditarCategoriaModal" tabindex="-1" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-info">
-                <h5 class="modal-title text-dark">Editar</h5>
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
             </div>
-            <div class="modal-body bg-dark text-white">
-                <form method="POST" action="{% url 'EditCategoria' %}" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    <input type="hidden" id="id_categoria_editar" name="id_categoria_editar" value="{{ form_editar.instance.id }}">
-
-                    <!-- Los campos de formulario del ModelForm -->
+            <form method="POST" action="{% url 'EditCategoria' %}">
+                {% csrf_token %}
+                <input type="hidden" id="id_categoria_editar" name="id_categoria_editar">
+                <div class="modal-body">
+                    {% for field in form_editar_categoria %}
                     <div class="form-group">
-                        <label for="nombre_editar">{{ form_editar.Nombre.label }}</label>
-                        {{ form_editar.Nombre|add_class:"form-control" }}
-                    </div>
-
-                    <!-- Mostrar errores de cada campo -->
-                    {% for field in form_editar %}
+                        <label>{{field.label}}</label>
+                        {{field|add_class:"form-control"}}
                         {% for error in field.errors %}
-                            <div class="alert alert-danger">{{ error }}</div>
+                        <div class="invalid-feedback d-block">{{error}}</div>
                         {% endfor %}
+                    </div>
                     {% endfor %}
-
-                    <!-- Errores generales -->
-                    {% for error in form_editar.non_field_errors %}
-                        <div class="alert alert-danger">{{ error }}</div>
-                    {% endfor %}
-
-            </div>
-            <div class="modal-footer bg-dark text-white">
-                <button type="button" class="btn btn-danger" data-dismiss="modal">
-                    Volver
-                </button>
-                <button type="submit" class="btn btn-success">
-                    Aceptar
-                </button>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-
-
-<div id="EliminarCategoriaModal" class="modal">
+<!-- Modal Agregar Subcategoría -->
+<div class="modal fade" id="AgregarSubcategoriaModal" tabindex="-1" role="dialog">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-info">
-                <h5 class="modal-title text-dark">Eliminar</h5>
-            </div>
-            <div class="modal-body bg-dark text-white">
-                <p class="labelmodal">¿Estás seguro?</p>
-                <form method="POST" action="{% url 'DeleteCategoria' %}">{% csrf_token %}
-                    <input type="hidden" id="id_categoria_eliminar" name="id_categoria_eliminar">
-            </div>
-            <div class="modal-footer bg-dark text-white">
-                <button type="button" class="btn btn-danger" data-dismiss="modal">
-                Volver
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Subcategoría</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
                 </button>
-                <button type="submit" class="btn btn-success">
-                    Aceptar
-                </button>
-                </form>
             </div>
+            <form method="POST" action="{% url 'AddSubcategoria' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% for field in form_subcategoria %}
+                    <div class="form-group">
+                        <label>{{field.label}}</label>
+                        {{field|add_class:"form-control"}}
+                        {% for error in field.errors %}
+                        <div class="invalid-feedback d-block">{{error}}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-12">
-        <h3 class="text-center">Categorias   <i class="fas fa-users"></i></h3>
-        <div class="col-md-3 pb-2">
-            <a href="#AgregarCategoriaModal"
-                data-toggle="modal" data-dismiss="modal">
-                <button type="button" class="btn btn-success">
-                    Agregar Categoria
-                    <i class="fas fa-plus-circle"></i>
+<!-- Modal Editar Subcategoría -->
+<div class="modal fade" id="EditarSubcategoriaModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Subcategoría</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
                 </button>
-            </a>
-        </div>
-        <div class="card card-body" style="overflow:scroll">
-            <table class="table table-hover table-primary" id="myTable">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                    </tr>
-                </thead>
-                <tbody class="text-dark">
-                    {% for i in categorias %}
-                    <tr>
-                        <td>{{i.Nombre}}</td>
-                        <td>
-                            <button onclick="editarCategoria('{{i.id}}','{{i.Nombre}}')" class="btn btn-dark-outline btn-sm" data-toggle="modal"
-                                href="#EditarCategoriaModal"><img src="{% static 'index/img/editar.png' %}" alt="Error"
-                                    width="30"></button>
-                                    <button onclick="eliminarCategoria('{{i.id}}')" class="btn btn-dark-outline btn-sm"
-                                    data-toggle="modal" href="#EliminarCategoriaModal"><img
-                                    src="{% static 'index/img/delete.png' %}" alt="Error" width="30"></button>
-                        </td>
-                    </tr>
+            </div>
+            <form method="POST" action="{% url 'EditSubcategoria' %}">
+                {% csrf_token %}
+                <input type="hidden" id="id_subcategoria_editar" name="id_subcategoria_editar">
+                <div class="modal-body">
+                    {% for field in form_editar_subcategoria %}
+                    <div class="form-group">
+                        <label>{{field.label}}</label>
+                        {{field|add_class:"form-control"}}
+                        {% for error in field.errors %}
+                        <div class="invalid-feedback d-block">{{error}}</div>
+                        {% endfor %}
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<!-- Modal Eliminar Categoría -->
+<div class="modal fade" id="EliminarCategoriaModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'DeleteCategoria' %}">
+                {% csrf_token %}
+                <input type="hidden" id="id_categoria_eliminar" name="id_categoria_eliminar">
+                <div class="modal-body">
+                    <p>¿Está seguro que desea eliminar esta categoría? Esta acción no se puede deshacer.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Eliminar Subcategoría -->
+<div class="modal fade" id="EliminarSubcategoriaModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Subcategoría</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'DeleteSubcategoria' %}">
+                {% csrf_token %}
+                <input type="hidden" id="id_subcategoria_eliminar" name="id_subcategoria_eliminar">
+                <div class="modal-body">
+                    <p>¿Está seguro que desea eliminar esta subcategoría? Esta acción no se puede deshacer.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tablaCategorias;
+
+function editarCategoria(id, nombre) {
+    document.getElementById('id_categoria_editar').value = id;
+    document.querySelector('#EditarCategoriaModal input[name="Nombre"]').value = nombre;
+}
+
+function eliminarCategoria(id) {
+    document.getElementById('id_categoria_eliminar').value = id;
+}
+
+function editarSubcategoria(id, nombre, categoria_id) {
+    document.getElementById('id_subcategoria_editar').value = id;
+    document.querySelector('#EditarSubcategoriaModal input[name="Nombre"]').value = nombre;
+    document.querySelector('#EditarSubcategoriaModal select[name="Categoria"]').value = categoria_id;
+}
+
+function eliminarSubcategoria(id) {
+    document.getElementById('id_subcategoria_eliminar').value = id;
+}
+
+function prepararNuevaSubcategoria(categoria_id) {
+    document.querySelector('#AgregarSubcategoriaModal select[name="Categoria"]').value = categoria_id;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (!$.fn.DataTable.isDataTable('#tabla-categorias')) {
+        tablaCategorias = $('#tabla-categorias').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+            },
+            "pageLength": 10,
+            "order": [[0, "asc"]]
+        });
+    }
+});
+</script>
+
 {% if messages %}
 {% for message in messages %}
 <script>
     Swal.fire({
-        icon: 'error',
-        title: 'Error...',
-        text: "{{message}}",
+        icon: '{{ message.tags }}',
+        title: '{{ message.tags|title }}',
+        text: "{{ message }}",
     })
 </script>
 {% endfor %}
 {% endif %}
+
 {% endblock %}

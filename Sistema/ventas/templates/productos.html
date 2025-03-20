@@ -2,72 +2,805 @@
 {% load static %}
 {% load widget_tweaks %}
 
+{% block extra_css %}
+<style>
+    /* Estilos para tablas responsivas */
+    @media screen and (max-width: 767px) {
+        .table-responsive-stack tr {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ccc;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        
+        .table-responsive-stack td {
+            border: none;
+            display: block;
+            padding: 0.5rem;
+            position: relative;
+            padding-left: 40%;
+        }
+        
+        .table-responsive-stack td:before {
+            content: attr(data-label);
+            display: inline-block;
+            font-weight: bold;
+            width: 35%;
+            position: absolute;
+            left: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            margin-top: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-group .btn {
+            margin: 0 2px;
+            padding: 0.375rem 0.75rem;
+        }
+
+        /* Ajustes para modales en móviles */
+        .modal-dialog {
+            margin: 0.5rem;
+            max-width: 100%;
+        }
+
+        .modal-content {
+            border-radius: 0;
+        }
+
+        /* Ajuste para el botón de agregar producto */
+        .add-product-btn {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+    }
+
+    /* Mejoras generales */
+    .stock-badge {
+        display: inline-block;
+        min-width: 80px;
+        text-align: center;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,0.075);
+    }
+
+    /* Estilos para el input de marca */
+    .marca-input::-webkit-calendar-picker-indicator {
+        display: none !important;
+    }
+
+    /* Estilos para el formulario de productos */
+    .form-section {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .form-section-title {
+        color: #17a2b8;
+        font-size: 1.1rem;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #17a2b8;
+    }
+
+    .form-row {
+        margin-right: -10px;
+        margin-left: -10px;
+    }
+
+    .form-col {
+        padding: 0 10px;
+    }
+
+    .input-group-text {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+    }
+
+    .modal-xl {
+        max-width: 1140px;
+    }
+
+    @media (min-width: 768px) {
+        .form-section {
+            margin-bottom: 25px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <link rel="stylesheet" href="{% static 'index/css/b4.css' %}">
 <script src="{% static 'index/js/b4.js' %}"></script>
 
 <div id="AgregarProductoModal" class="modal" style="overflow: scroll;">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header bg-info">
                 <h5 class="modal-title text-dark">Agregar nuevo producto</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body bg-dark text-white">
-                <form method="POST" action="{% url 'AddProducto' %}" enctype="multipart/form-data">{% csrf_token %}
-                    {% for field in form_producto %}
-                    <p>{{ field.label }} <br>
-                        {{ field|add_class:"form-control text-dark" }}</p>
-                    {% for error in field.errors %}
-                    <p class="alarma">{{ error }}</p>
-                    {% endfor %}
-                    {% endfor %}
+                <form method="POST" action="{% url 'AddProducto' %}" enctype="multipart/form-data" id="formProducto">
+                    {% csrf_token %}
+                    
+                    <!-- Información básica -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-info-circle"></i> Información Básica
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label for="id_Nombre">Nombre del Producto</label>
+                                    {{ form_producto.Nombre|add_class:"form-control text-dark" }}
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label for="id_CodigoDeBarras">Código de Barras</label>
+                                    {{ form_producto.CodigoDeBarras|add_class:"form-control text-dark" }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="id_Descripcion">Descripción</label>
+                            {{ form_producto.Descripcion|add_class:"form-control text-dark" }}
+                        </div>
+                    </div>
+
+                    <!-- Clasificación -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-tags"></i> Clasificación
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Marca</label>
+                                    <div class="input-group">
+                                        <input type="text" 
+                                               name="Marca" 
+                                               id="id_Marca"
+                                               list="marcas-list"
+                                               class="form-control text-dark"
+                                               placeholder="Buscar o crear marca..."
+                                               autocomplete="off"
+                                               required>
+                                        <datalist id="marcas-list">
+                                            {% for marca in form_producto.Marca.field.queryset %}
+                                                <option value="{{ marca.Nombre }}" data-id="{{ marca.id }}">
+                                            {% endfor %}
+                                        </datalist>
+                                        <input type="hidden" name="Marca_id" id="id_Marca_id">
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarMarcaModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Proveedor</label>
+                                    <div class="input-group">
+                                        <input type="text" 
+                                               name="Proveedor" 
+                                               id="id_Proveedor"
+                                               list="proveedores-list"
+                                               class="form-control text-dark"
+                                               placeholder="Buscar o crear proveedor..."
+                                               autocomplete="off"
+                                               required>
+                                        <datalist id="proveedores-list">
+                                            {% for proveedor in proveedores %}
+                                                <option value="{{ proveedor.Nombre }}" data-id="{{ proveedor.id }}">
+                                            {% endfor %}
+                                        </datalist>
+                                        <input type="hidden" name="Proveedor_id" id="id_Proveedor_id">
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarProveedorModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col col-12">
+                                <div class="categoria-group">
+                                    <div class="form-row">
+                                        <div class="form-col col-md-6">
+                                            <div class="form-group">
+                                                <label>Categoría</label>
+                                                <div class="input-group">
+                                                    <select name="Categoria" id="id_Categoria" class="form-control text-dark" required>
+                                                        <option value="">Seleccione una categoría</option>
+                                                        {% for categoria in categorias %}
+                                                            <option value="{{ categoria.id }}">{{ categoria.Nombre }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <div class="input-group-append">
+                                                        <button type="button" 
+                                                                class="btn btn-primary" 
+                                                                data-toggle="modal" 
+                                                                data-target="#AgregarCategoriaModal">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-col col-md-6">
+                                            <div class="form-group">
+                                                <label>Subcategoría</label>
+                                                <div class="input-group">
+                                                    <select name="SubCategoria" id="id_SubCategoria" class="form-control text-dark" required disabled>
+                                                        <option value="">Primero seleccione una categoría</option>
+                                                    </select>
+                                                    <div class="input-group-append">
+                                                        <button type="button" 
+                                                                class="btn btn-primary" 
+                                                                id="btnAgregarSubcategoria"
+                                                                data-toggle="modal" 
+                                                                data-target="#AgregarSubcategoriaModal"
+                                                                disabled>
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Precios -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-dollar-sign"></i> Precios
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-4">
+                                <div class="form-group">
+                                    <label>Precio de Costo</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               name="PrecioCosto" 
+                                               id="id_PrecioCosto"
+                                               class="form-control text-dark"
+                                               placeholder="0.00"
+                                               step="0.01"
+                                               required>
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AjustePrecioModal">
+                                                <i class="fas fa-balance-scale"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-4">
+                                <div class="form-group">
+                                    <label>Precio de Contado</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               name="PrecioDeContado" 
+                                               id="id_PrecioDeContado"
+                                               class="form-control text-dark"
+                                               placeholder="0.00"
+                                               step="0.01"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-4">
+                                <div class="form-group">
+                                    <label>Precio de Lista</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               name="PrecioDeLista" 
+                                               id="id_PrecioDeLista"
+                                               class="form-control text-dark"
+                                               placeholder="0.00"
+                                               step="0.01"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventario -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-box"></i> Inventario
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Unidad de Medida</label>
+                                    <div class="input-group">
+                                        <select name="UnidadDeMedida" id="id_UnidadDeMedida" class="form-control text-dark" required>
+                                            <option value="">Seleccione una unidad de medida</option>
+                                            {% for unidad in form_producto.UnidadDeMedida.field.queryset %}
+                                                <option value="{{ unidad.id }}">{{ unidad.Nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarUnidadMedidaModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Stock Inicial</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="stock_inicial" 
+                                               id="id_stock_inicial"
+                                               class="form-control text-dark"
+                                               placeholder="0"
+                                               min="0"
+                                               step="1"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Stock Mínimo</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="stock_minimo" 
+                                               id="id_stock_minimo"
+                                               class="form-control text-dark"
+                                               placeholder="Stock mínimo permitido"
+                                               min="0"
+                                               step="1"
+                                               required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Se generará una alerta cuando el stock sea menor a este valor
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Stock Máximo</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="stock_maximo" 
+                                               id="id_stock_maximo"
+                                               class="form-control text-dark"
+                                               placeholder="Stock máximo recomendado"
+                                               min="0"
+                                               step="1"
+                                               required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-chart-line text-info"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Se generará una alerta cuando el stock supere este valor
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col col-12">
+                                <div class="form-group">
+                                    <label>Fecha Última Modificación</label>
+                                    {{ form_producto.FechaUltimaModificacion|add_class:"form-control text-dark" }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {% for error in form.non_field_errors %}
-                    <p class="alarma">{{ error }}</p>
+                        <div class="alert alert-danger">{{ error }}</div>
                     {% endfor %}
-            </div>
-            <div class="modal-footer bg-dark">
-                <button type="button" class="btn btn-danger" data-dismiss="modal">
-                    Cancelar
-                </button>
-                <button type="submit" class="btn btn-success">
-                    Agregar
-                </button>
-            </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Guardar Producto
+                    </button>
+                </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Modal de Editar Producto -->
 <div id="EditarProductoModal" class="modal">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header bg-info">
                 <h5 class="modal-title text-dark">Editar producto</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body bg-dark text-white">
-                <form method="POST" action="{% url 'EditProducto' %}" enctype="multipart/form-data">{% csrf_token %}
+                <form method="POST" action="{% url 'EditProducto' %}" enctype="multipart/form-data" id="formEditarProducto">
+                    {% csrf_token %}
                     <input type="hidden" id="id_producto_editar" name="id_producto_editar">
-                    {% for field in form_editar %}
-                    <p>{{ field.label }} <br>
-                        {{ field|add_class:"form-control" }}</p>
-                    {% for error in field.errors %}
-                    <p class="alarma">{{ error }}</p>
+                    
+                    <!-- Información básica -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-info-circle"></i> Información Básica
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label for="id_Nombre_editar">Nombre del Producto</label>
+                                    {{ form_editar.Nombre|add_class:"form-control text-dark" }}
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label for="id_CodigoDeBarras_editar">Código de Barras</label>
+                                    {{ form_editar.CodigoDeBarras|add_class:"form-control text-dark" }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="id_Descripcion_editar">Descripción</label>
+                            {{ form_editar.Descripcion|add_class:"form-control text-dark" }}
+                        </div>
+                    </div>
+
+                    <!-- Clasificación -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-tags"></i> Clasificación
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Marca</label>
+                                    <div class="input-group">
+                                        <input type="text" 
+                                               name="Marca" 
+                                               id="id_Marca_editar"
+                                               list="marcas-list-editar"
+                                               class="form-control text-dark"
+                                               placeholder="Buscar o crear marca..."
+                                               autocomplete="off"
+                                               required>
+                                        <datalist id="marcas-list-editar">
+                                            {% for marca in form_editar.Marca.field.queryset %}
+                                                <option value="{{ marca.Nombre }}" data-id="{{ marca.id }}">
+                                            {% endfor %}
+                                        </datalist>
+                                        <input type="hidden" name="Marca_id" id="id_Marca_id_editar">
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarMarcaModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Proveedor</label>
+                                    <div class="input-group">
+                                        <input type="text" 
+                                               name="Proveedor" 
+                                               id="id_Proveedor_editar"
+                                               list="proveedores-list-editar"
+                                               class="form-control text-dark"
+                                               placeholder="Buscar o crear proveedor..."
+                                               autocomplete="off"
+                                               required>
+                                        <datalist id="proveedores-list-editar">
+                                            {% for proveedor in proveedores %}
+                                                <option value="{{ proveedor.Nombre }}" data-id="{{ proveedor.id }}">
+                                            {% endfor %}
+                                        </datalist>
+                                        <input type="hidden" name="Proveedor_id" id="id_Proveedor_id_editar">
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarProveedorModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col col-12">
+                                <div class="categoria-group">
+                                    <div class="form-row">
+                                        <div class="form-col col-md-6">
+                                            <div class="form-group">
+                                                <label>Categoría</label>
+                                                <div class="input-group">
+                                                    <select name="Categoria" id="id_Categoria_editar" class="form-control text-dark" required>
+                                                        <option value="">Seleccione una categoría</option>
+                                                        {% for categoria in categorias %}
+                                                            <option value="{{ categoria.id }}">{{ categoria.Nombre }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <div class="input-group-append">
+                                                        <button type="button" 
+                                                                class="btn btn-primary" 
+                                                                data-toggle="modal" 
+                                                                data-target="#AgregarCategoriaModal">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-col col-md-6">
+                                            <div class="form-group">
+                                                <label>Subcategoría</label>
+                                                <div class="input-group">
+                                                    <select name="SubCategoria" id="id_SubCategoria_editar" class="form-control text-dark" required>
+                                                        <option value="">Primero seleccione una categoría</option>
+                                                    </select>
+                                                    <div class="input-group-append">
+                                                        <button type="button" 
+                                                                class="btn btn-primary" 
+                                                                id="btnAgregarSubcategoria_editar"
+                                                                data-toggle="modal" 
+                                                                data-target="#AgregarSubcategoriaModal">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Precios -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-dollar-sign"></i> Precios
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-4">
+                                <div class="form-group">
+                                    <label>Precio de Costo</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               name="PrecioCosto" 
+                                               id="id_PrecioCosto_editar"
+                                               class="form-control text-dark"
+                                               placeholder="0.00"
+                                               step="0.01"
+                                               required>
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AjustePrecioModal">
+                                                <i class="fas fa-balance-scale"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-4">
+                                <div class="form-group">
+                                    <label>Precio de Contado</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               name="PrecioDeContado" 
+                                               id="id_PrecioDeContado_editar"
+                                               class="form-control text-dark"
+                                               placeholder="0.00"
+                                               step="0.01"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-4">
+                                <div class="form-group">
+                                    <label>Precio de Lista</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               name="PrecioDeLista" 
+                                               id="id_PrecioDeLista_editar"
+                                               class="form-control text-dark"
+                                               placeholder="0.00"
+                                               step="0.01"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventario -->
+                    <div class="form-section">
+                        <h6 class="form-section-title">
+                            <i class="fas fa-box"></i> Inventario
+                        </h6>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Unidad de Medida</label>
+                                    <div class="input-group">
+                                        <select name="UnidadDeMedida" id="id_UnidadDeMedida_editar" class="form-control text-dark" required>
+                                            <option value="">Seleccione una unidad de medida</option>
+                                            {% for unidad in form_editar.UnidadDeMedida.field.queryset %}
+                                                <option value="{{ unidad.id }}">{{ unidad.Nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="input-group-append">
+                                            <button type="button" 
+                                                    class="btn btn-primary" 
+                                                    data-toggle="modal" 
+                                                    data-target="#AgregarUnidadMedidaModal">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Stock Inicial</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="stock_inicial" 
+                                               id="id_stock_inicial_editar"
+                                               class="form-control text-dark"
+                                               placeholder="0"
+                                               min="0"
+                                               step="1"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Stock Mínimo</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="stock_minimo" 
+                                               id="id_stock_minimo_editar"
+                                               class="form-control text-dark"
+                                               placeholder="Stock mínimo permitido"
+                                               min="0"
+                                               step="1"
+                                               required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Se generará una alerta cuando el stock sea menor a este valor
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="form-col col-md-6">
+                                <div class="form-group">
+                                    <label>Stock Máximo</label>
+                                    <div class="input-group">
+                                        <input type="number" 
+                                               name="stock_maximo" 
+                                               id="id_stock_maximo_editar"
+                                               class="form-control text-dark"
+                                               placeholder="Stock máximo recomendado"
+                                               min="0"
+                                               step="1"
+                                               required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-chart-line text-info"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        Se generará una alerta cuando el stock supere este valor
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col col-12">
+                                <div class="form-group">
+                                    <label>Fecha Última Modificación</label>
+                                    {{ form_editar.FechaUltimaModificacion|add_class:"form-control text-dark" }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% for error in form_editar.non_field_errors %}
+                        <div class="alert alert-danger">{{ error }}</div>
                     {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                    <p class="alarma">{{ error }}</p>
-                    {% endfor %}
-            </div>
-            <div class="modal-footer bg-dark text-white">
-                <button type="button" class="btn btn-danger" data-dismiss="modal">
-                    Volver
-                </button>
-                <button type="submit" class="btn btn-success">
-                    Aceptar
-                </button>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -96,47 +829,367 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-12">
-        <h3 class="text-center">Productos <i class="fas fa-boxes"></i></h3>
-        <div class="col-md-3 pb-2">
-            <a href="#AgregarProductoModal" data-toggle="modal" data-dismiss="modal">
-                <button type="button" class="btn btn-success">
-                    Agregar Producto
-                    <i class="fas fa-plus-circle"></i>
-                </button>
-            </a>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h3 class="text-center mb-4">Productos <i class="fas fa-boxes"></i></h3>
+            
+            <div class="mb-3">
+                <a href="#AgregarProductoModal" data-toggle="modal" data-dismiss="modal" class="btn btn-success add-product-btn">
+                    <i class="fas fa-plus-circle"></i> Agregar Producto
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tabla-productos">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Marca</th>
+                                    <th>Categoría</th>
+                                    <th>Stock Actual</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Estado</th>
+                                    <th>Última Actualización</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in productos %}
+                                <tr>
+                                    <td data-label="Nombre">{{ producto.Nombre }}</td>
+                                    <td data-label="Marca">{{ producto.Marca }}</td>
+                                    <td data-label="Categoría">{{ producto.SubCategoria }}</td>
+                                    <td data-label="Stock Actual">
+                                        {% if producto.inventario %}
+                                            {{ producto.inventario.stock_actual }} {{ producto.UnidadDeMedida }}
+                                        {% else %}
+                                            No configurado
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Stock Mínimo">
+                                        {% if producto.inventario %}
+                                            {{ producto.inventario.stock_minimo }} {{ producto.UnidadDeMedida }}
+                                        {% else %}
+                                            No configurado
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Estado">
+                                        {% if producto.inventario %}
+                                            {% with estado=producto.inventario.estado_stock %}
+                                                {% if estado == 'Sin stock' %}
+                                                    <span class="badge badge-danger stock-badge">{{ estado }}</span>
+                                                {% elif estado == 'Stock bajo' %}
+                                                    <span class="badge badge-warning stock-badge">{{ estado }}</span>
+                                                {% elif estado == 'Stock normal' %}
+                                                    <span class="badge badge-success stock-badge">{{ estado }}</span>
+                                                {% elif estado == 'Sobrestock' %}
+                                                    <span class="badge badge-info stock-badge">{{ estado }}</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="badge badge-secondary stock-badge">Sin configurar</span>
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Última Actualización">
+                                        {% if producto.inventario %}
+                                            {{ producto.inventario.ultima_actualizacion|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td data-label="Acciones">
+                                        <div class="btn-group">
+                                            <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}')"
+                                                class="btn btn-outline-primary btn-sm" data-toggle="modal" href="#EditarProductoModal" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="ajustarInventario('{{ producto.id }}', '{{ producto.Nombre }}')"
+                                                class="btn btn-warning btn-sm" data-toggle="modal" href="#AjusteInventarioModal" title="Ajustar Stock">
+                                                <i class="fas fa-balance-scale"></i>
+                                            </button>
+                                            <a href="{% url 'historial_movimientos_producto' producto.id %}" 
+                                               class="btn btn-info btn-sm" title="Ver movimientos">
+                                                <i class="fas fa-history"></i>
+                                            </a>
+                                            <button onclick="eliminarProducto('{{ producto.id }}')"
+                                                class="btn btn-danger btn-sm" data-toggle="modal" href="#EliminarProductoModal" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card card-body" style="overflow:scroll">
-            <table class="table table-hover table-primary" id="myTable">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Marca</th>
-                        <th>Cantidad</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="text-dark">
-                    {% for producto in productos %}
-                    <tr>
-                        <td>{{ producto.Nombre }}</td>
-                        <td></td>
-                        <td>{{ producto.Cantidad }}</td>
-                        <td>
-                            <button onclick="editarProducto('{{ producto.id }}', '{{ producto.Nombre }}', '{{ producto.Cantidad }}')"
-                                class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal">
-                                <img src="{% static 'index/img/editar.png' %}" alt="Editar" width="30">
-                            </button>
-                            <button onclick="eliminarProducto('{{ producto.id }}')"
-                                class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EliminarProductoModal">
-                                <img src="{% static 'index/img/delete.png' %}" alt="Eliminar" width="30">
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    </div>
+</div>
+
+<!-- Modal de Ajuste de Inventario -->
+<div class="modal fade" id="AjusteInventarioModal" tabindex="-1" role="dialog" aria-labelledby="ajusteInventarioLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="ajusteInventarioLabel">Ajuste de Inventario</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'ajuste_inventario' 0 %}" id="formAjusteInventario">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <input type="hidden" id="producto_id_ajuste" name="producto_id">
+                    <h6 id="producto_nombre_ajuste" class="mb-4"></h6>
+                    
+                    <div class="form-group">
+                        <label for="tipo_ajuste">Tipo de Ajuste</label>
+                        <select class="form-control" id="tipo_ajuste" name="tipo_ajuste" required>
+                            <option value="">Seleccione un tipo de ajuste</option>
+                            <option value="ENT">Entrada de mercancía</option>
+                            <option value="SAL">Salida de mercancía</option>
+                            <option value="CNT">Ajuste por conteo</option>
+                        </select>
+                        <small class="form-text text-muted">
+                            - Entrada: Suma la cantidad al stock actual<br>
+                            - Salida: Resta la cantidad del stock actual<br>
+                            - Conteo: Establece el stock exacto (la cantidad ingresada será el nuevo stock)
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cantidad">Cantidad</label>
+                        <input type="number" class="form-control" id="cantidad" name="cantidad" required min="0" step="1">
+                        <small class="form-text text-muted" id="cantidad_ayuda">
+                            Ingrese la cantidad a ajustar
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="justificacion">Justificación</label>
+                        <textarea class="form-control" id="justificacion" name="justificacion" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Ajuste</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Marca -->
+<div class="modal fade" id="AgregarMarcaModal" tabindex="-1" role="dialog" aria-labelledby="agregarMarcaLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarMarcaLabel">Nueva Marca</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'agregar_marca' %}" id="formNuevaMarca">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <div class="form-group">
+                        <label for="nombre_marca">Nombre de la Marca</label>
+                        <input type="text" class="form-control" id="nombre_marca" name="nombre" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Marca</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Categoría -->
+<div class="modal fade" id="AgregarCategoriaModal" tabindex="-1" role="dialog" aria-labelledby="agregarCategoriaLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarCategoriaLabel">Nueva Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'AddCategoria' %}" id="formNuevaCategoria">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <div class="form-group">
+                        <label for="nombre_categoria">Nombre de la Categoría</label>
+                        <input type="text" class="form-control" id="nombre_categoria" name="Nombre" required>
+                    </div>
+                    
+                    <div class="subcategorias-container">
+                        <h6 class="mt-4 mb-3">Subcategorías</h6>
+                        <div id="subcategorias-list">
+                            <div class="subcategoria-item input-group mb-2">
+                                <input type="text" class="form-control" name="subcategorias[]" placeholder="Nombre de la subcategoría" required>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-danger remove-subcategoria">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-info btn-sm mt-2" id="agregar-subcategoria">
+                            <i class="fas fa-plus"></i> Agregar Subcategoría
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Subcategoría -->
+<div class="modal fade" id="AgregarSubcategoriaModal" tabindex="-1" role="dialog" aria-labelledby="agregarSubcategoriaLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarSubcategoriaLabel">Nueva Subcategoría</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'AddSubcategoria' %}" id="formNuevaSubcategoria">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <input type="hidden" id="categoria_id_subcategoria" name="Categoria">
+                    <div class="form-group">
+                        <label for="nombre_subcategoria">Nombre de la Subcategoría</label>
+                        <input type="text" class="form-control" id="nombre_subcategoria" name="Nombre" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Subcategoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Proveedor -->
+<div class="modal fade" id="AgregarProveedorModal" tabindex="-1" role="dialog" aria-labelledby="agregarProveedorLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarProveedorLabel">Nuevo Proveedor</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'AddProveedor' %}" id="formNuevoProveedor">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <div class="form-group">
+                        <label for="nombre_proveedor">Nombre del Proveedor</label>
+                        <input type="text" class="form-control" id="nombre_proveedor" name="nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefono_proveedor">Teléfono</label>
+                        <input type="tel" class="form-control" id="telefono_proveedor" name="telefono" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion_proveedor">Dirección</label>
+                        <input type="text" class="form-control" id="direccion_proveedor" name="direccion" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email_proveedor">Email</label>
+                        <input type="email" class="form-control" id="email_proveedor" name="email" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Proveedor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ajuste de Porcentajes -->
+<div class="modal fade" id="AjustePrecioModal" tabindex="-1" role="dialog" aria-labelledby="ajustePrecioLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="ajustePrecioLabel">Configurar Porcentajes de Aumento</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body bg-dark text-white">
+                <div class="form-group">
+                    <label for="porcentaje_contado">Porcentaje de Aumento para Precio de Contado</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="porcentaje_contado" value="30" min="0" step="1">
+                        <div class="input-group-append">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="porcentaje_lista">Porcentaje de Aumento para Precio de Lista</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="porcentaje_lista" value="40" min="0" step="1">
+                        <div class="input-group-append">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Los porcentajes se aplicarán sobre el precio de costo para calcular los precios sugeridos.
+                </div>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="aplicar_porcentajes">Aplicar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Unidad de Medida -->
+<div class="modal fade" id="AgregarUnidadMedidaModal" tabindex="-1" role="dialog" aria-labelledby="agregarUnidadMedidaLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info">
+                <h5 class="modal-title text-dark" id="agregarUnidadMedidaLabel">Nueva Unidad de Medida</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'agregar_unidad_medida' %}" id="formNuevaUnidadMedida">
+                {% csrf_token %}
+                <div class="modal-body bg-dark text-white">
+                    <div class="form-group">
+                        <label for="nombre_unidad">Nombre de la Unidad</label>
+                        <input type="text" class="form-control" id="nombre_unidad" name="nombre" placeholder="Ej: Kilogramos" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="abreviatura_unidad">Abreviatura</label>
+                        <input type="text" class="form-control" id="abreviatura_unidad" name="abreviatura" placeholder="Ej: kg" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-dark">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Unidad</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -145,11 +1198,546 @@
 {% for message in messages %}
 <script>
     Swal.fire({
-        icon: 'error',
-        title: 'Error...',
-        text: "{{ message }}",
+        "title": "{{ message.tags|title }}",
+        "text": "{{ message }}",
+        "icon": "{{ message.tags }}"
     });
 </script>
 {% endfor %}
 {% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Función global para editar producto
+function editarProducto(id, nombre) {
+    // Obtener los datos del producto mediante AJAX
+    $.ajax({
+        url: "{% url 'obtener_producto' 0 %}".replace('0', id),
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const producto = response.producto;
+                console.log('Datos del producto recibidos:', producto); // Para debug
+                
+                // Establecer el ID del producto a editar
+                $('#id_producto_editar').val(id);
+                
+                // Información básica - Corregir los IDs
+                $('[name="Nombre"]').val(producto.Nombre);
+                $('[name="CodigoDeBarras"]').val(producto.CodigoDeBarras);
+                $('[name="Descripcion"]').val(producto.Descripcion);
+                $('[name="FechaUltimaModificacion"]').val(producto.FechaUltimaModificacion);
+                
+                // Marca y Proveedor
+                $('#id_Marca_editar').val(producto.Marca);
+                $('#id_Marca_id_editar').val(producto.marca_id);
+                $('#id_Proveedor_editar').val(producto.Proveedor);
+                $('#id_Proveedor_id_editar').val(producto.proveedor_id);
+                
+                // Categoría y Subcategoría
+                const categoriaSelect = $('#id_Categoria_editar');
+                categoriaSelect.val(producto.categoria_id);
+                
+                // Cargar subcategorías y seleccionar la correcta
+                if (producto.categoria_id) {
+                    $.ajax({
+                        url: "{% url 'obtener_subcategorias' %}",
+                        type: 'GET',
+                        data: { categoria_id: producto.categoria_id },
+                        success: function(subcatResponse) {
+                            const subcategoriaSelect = $('#id_SubCategoria_editar');
+                            subcategoriaSelect.prop('disabled', false);
+                            subcategoriaSelect.empty();
+                            subcategoriaSelect.append('<option value="">Seleccione una subcategoría</option>');
+                            
+                            subcatResponse.subcategorias.forEach(function(subcategoria) {
+                                subcategoriaSelect.append(
+                                    `<option value="${subcategoria.id}">${subcategoria.nombre}</option>`
+                                );
+                            });
+                            
+                            // Seleccionar la subcategoría del producto
+                            subcategoriaSelect.val(producto.subcategoria_id);
+                        }
+                    });
+                }
+                
+                // Precios
+                $('#id_PrecioCosto_editar').val(producto.PrecioCosto);
+                $('#id_PrecioDeContado_editar').val(producto.PrecioDeContado);
+                $('#id_PrecioDeLista_editar').val(producto.PrecioDeLista);
+                
+                // Unidad de Medida
+                $('#id_UnidadDeMedida_editar').val(producto.UnidadDeMedida);
+                
+                // Inventario
+                if (producto.inventario) {
+                    $('#id_stock_inicial_editar').val(producto.inventario.stock_inicial);
+                    $('#id_stock_minimo_editar').val(producto.inventario.stock_minimo);
+                    $('#id_stock_maximo_editar').val(producto.inventario.stock_maximo);
+                }
+                
+                // Resetear el estado de modificación de los precios
+                $('#id_PrecioDeContado_editar, #id_PrecioDeLista_editar').data('modified', false);
+                
+                // Mostrar el modal
+                $('#EditarProductoModal').modal('show');
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: response.message || 'Error al cargar los datos del producto'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error en la petición:', error); // Para debug
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al cargar los datos del producto'
+            });
+        }
+    });
+}
+
+$(document).ready(function() {
+    // Inicializar DataTable con configuración responsive
+    var table = $('#tabla-productos').DataTable({
+        responsive: true,
+        language: {
+            url: "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        dom: "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+             "<'row'<'col-sm-12'tr>>" +
+             "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        order: [[0, "asc"]],
+        columnDefs: [
+            {
+                targets: -1,
+                orderable: false
+            }
+        ]
+    });
+
+    // Manejar el clic en los enlaces de subcategoría
+    $(document).on('click', '.filtrar-subcategoria', function(e) {
+        e.preventDefault();
+        const subcategoria = $(this).data('subcategoria');
+        
+        // Aplicar el filtro
+        table.column(2).search(subcategoria).draw();
+        
+        // Mostrar mensaje de filtro activo
+        Swal.fire({
+            icon: 'info',
+            title: 'Filtro aplicado',
+            text: `Mostrando productos de la subcategoría: ${subcategoria}`,
+            showConfirmButton: true,
+            confirmButtonText: 'Limpiar filtro',
+            showCancelButton: true,
+            cancelButtonText: 'Cerrar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Limpiar el filtro
+                table.column(2).search('').draw();
+            }
+        });
+    });
+
+    // Manejar el cambio de categoría
+    $('#id_Categoria').on('change', function() {
+        const categoriaId = $(this).val();
+        const subcategoriaSelect = $('#id_SubCategoria');
+        const btnAgregarSubcategoria = $('#btnAgregarSubcategoria');
+        
+        if (categoriaId) {
+            // Habilitar el select de subcategorías y el botón
+            subcategoriaSelect.prop('disabled', false);
+            btnAgregarSubcategoria.prop('disabled', false);
+            
+            // Actualizar el ID de categoría en el formulario de nueva subcategoría
+            $('#categoria_id_subcategoria').val(categoriaId);
+            
+            // Realizar la petición AJAX para obtener las subcategorías
+            $.ajax({
+                url: "{% url 'obtener_subcategorias' %}",
+                type: 'GET',
+                data: { categoria_id: categoriaId },
+                success: function(response) {
+                    // Limpiar y actualizar el select de subcategorías
+                    subcategoriaSelect.empty();
+                    subcategoriaSelect.append('<option value="">Seleccione una subcategoría</option>');
+                    
+                    response.subcategorias.forEach(function(subcategoria) {
+                        subcategoriaSelect.append(
+                            `<option value="${subcategoria.id}">${subcategoria.nombre}</option>`
+                        );
+                    });
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al cargar las subcategorías'
+                    });
+                }
+            });
+        } else {
+            // Si no hay categoría seleccionada, deshabilitar y limpiar subcategorías
+            subcategoriaSelect.prop('disabled', true);
+            btnAgregarSubcategoria.prop('disabled', true);
+            subcategoriaSelect.empty();
+            subcategoriaSelect.append('<option value="">Primero seleccione una categoría</option>');
+        }
+    });
+
+    // Manejar el formulario de nueva subcategoría
+    $('#formNuevaSubcategoria').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Validar nombre de subcategoría
+        const nombreSubcategoria = $('#nombre_subcategoria').val().trim();
+        if (!nombreSubcategoria) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'El nombre de la subcategoría es requerido'
+            });
+            return;
+        }
+
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Guardando...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowEnterKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.success) {
+                    // Agregar la nueva subcategoría al select
+                    $('#id_SubCategoria').append(
+                        `<option value="${response.subcategoria.id}">${response.subcategoria.nombre}</option>`
+                    );
+                    
+                    // Seleccionar la nueva subcategoría
+                    $('#id_SubCategoria').val(response.subcategoria.id);
+                    
+                    // Cerrar el modal
+                    $('#AgregarSubcategoriaModal').modal('hide');
+                    
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: 'Subcategoría agregada correctamente'
+                    });
+                    
+                    // Limpiar el formulario
+                    $('#formNuevaSubcategoria')[0].reset();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al agregar la subcategoría'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al procesar la solicitud'
+                });
+            }
+        });
+    });
+
+    // Manejar el formulario de nuevo proveedor
+    $('#formNuevoProveedor').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Obtener los valores del formulario
+        const formData = new FormData(this);
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Guardando...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Enviar solicitud AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    // Agregar el nuevo proveedor al datalist
+                    const proveedor = response.proveedor;
+                    $('#proveedores-list').append(`<option value="${proveedor.nombre}" data-id="${proveedor.id}">`);
+                    
+                    // Seleccionar el nuevo proveedor
+                    $('#id_Proveedor').val(proveedor.nombre);
+                    $('#id_Proveedor_id').val(proveedor.id);
+                    
+                    // Cerrar el modal y mostrar mensaje de éxito
+                    $('#AgregarProveedorModal').modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Proveedor agregado exitosamente',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                    
+                    // Limpiar el formulario
+                    $('#formNuevoProveedor')[0].reset();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Ocurrió un error al procesar la solicitud'
+                });
+            }
+        });
+    });
+    
+    // Manejar el input de proveedor
+    $('#id_Proveedor').on('input', function() {
+        const selectedOption = $(`#proveedores-list option[value="${$(this).val()}"]`);
+        if (selectedOption.length) {
+            $('#id_Proveedor_id').val(selectedOption.data('id'));
+        } else {
+            $('#id_Proveedor_id').val('');
+        }
+    });
+
+    // Manejar el formulario de nueva unidad de medida
+    $('#formNuevaUnidadMedida').on('submit', function(e) {
+        e.preventDefault();
+        
+        // Obtener los valores del formulario
+        const formData = new FormData(this);
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Guardando...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Enviar solicitud AJAX
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    // Agregar la nueva unidad al select
+                    const unidad = response.unidad;
+                    $('#id_UnidadDeMedida').append(
+                        `<option value="${unidad.id}">${unidad.nombre}</option>`
+                    );
+                    
+                    // Seleccionar la nueva unidad
+                    $('#id_UnidadDeMedida').val(unidad.id);
+                    
+                    // Cerrar el modal y mostrar mensaje de éxito
+                    $('#AgregarUnidadMedidaModal').modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Unidad de medida agregada exitosamente',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                    
+                    // Limpiar el formulario
+                    $('#formNuevaUnidadMedida')[0].reset();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al agregar la unidad de medida'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Ocurrió un error al procesar la solicitud'
+                });
+            }
+        });
+    });
+
+    // Variables para almacenar los porcentajes
+    let porcentajeContado = 30;
+    let porcentajeLista = 40;
+
+    // Función para calcular y actualizar precios
+    function actualizarPrecios() {
+        const precioCosto = parseFloat($('#id_PrecioCosto').val()) || 0;
+        
+        // Calcular precios sugeridos usando los porcentajes configurados
+        const precioContadoSugerido = (precioCosto * (1 + porcentajeContado/100)).toFixed(2);
+        const precioListaSugerido = (precioCosto * (1 + porcentajeLista/100)).toFixed(2);
+        
+        // Actualizar los campos solo si no han sido modificados manualmente
+        if (!$('#id_PrecioDeContado').data('modified')) {
+            $('#id_PrecioDeContado').val(precioContadoSugerido);
+        }
+        if (!$('#id_PrecioDeLista').data('modified')) {
+            $('#id_PrecioDeLista').val(precioListaSugerido);
+        }
+    }
+
+    // Manejar el cálculo automático de precios
+    $('#id_PrecioCosto').on('input', actualizarPrecios);
+
+    // Manejar el botón de aplicar porcentajes
+    $('#aplicar_porcentajes').on('click', function() {
+        // Obtener los nuevos porcentajes
+        porcentajeContado = parseFloat($('#porcentaje_contado').val()) || 30;
+        porcentajeLista = parseFloat($('#porcentaje_lista').val()) || 40;
+        
+        // Actualizar los precios con los nuevos porcentajes
+        actualizarPrecios();
+        
+        // Cerrar el modal
+        $('#AjustePrecioModal').modal('hide');
+        
+        // Mostrar mensaje de éxito
+        Swal.fire({
+            icon: 'success',
+            title: 'Porcentajes actualizados',
+            text: `Contado: ${porcentajeContado}% - Lista: ${porcentajeLista}%`,
+            showConfirmButton: false,
+            timer: 1500
+        });
+    });
+
+    // Marcar los campos de precio como modificados cuando el usuario los cambie manualmente
+    $('#id_PrecioDeContado, #id_PrecioDeLista').on('input', function() {
+        $(this).data('modified', true);
+    });
+
+    // Resetear el estado de modificación cuando se limpia el formulario
+    $('#formProducto').on('reset', function() {
+        $('#id_PrecioDeContado, #id_PrecioDeLista').data('modified', false);
+        // Resetear también los porcentajes a sus valores por defecto
+        porcentajeContado = 30;
+        porcentajeLista = 40;
+        $('#porcentaje_contado').val(30);
+        $('#porcentaje_lista').val(40);
+    });
+
+    // Manejar el cambio de categoría en el formulario de edición
+    $('#id_Categoria_editar').on('change', function() {
+        const categoriaId = $(this).val();
+        const subcategoriaSelect = $('#id_SubCategoria_editar');
+        const btnAgregarSubcategoria = $('#btnAgregarSubcategoria_editar');
+        
+        if (categoriaId) {
+            subcategoriaSelect.prop('disabled', false);
+            btnAgregarSubcategoria.prop('disabled', false);
+            
+            $.ajax({
+                url: "{% url 'obtener_subcategorias' %}",
+                type: 'GET',
+                data: { categoria_id: categoriaId },
+                success: function(response) {
+                    subcategoriaSelect.empty();
+                    subcategoriaSelect.append('<option value="">Seleccione una subcategoría</option>');
+                    
+                    response.subcategorias.forEach(function(subcategoria) {
+                        subcategoriaSelect.append(
+                            `<option value="${subcategoria.id}">${subcategoria.nombre}</option>`
+                        );
+                    });
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al cargar las subcategorías'
+                    });
+                }
+            });
+        } else {
+            subcategoriaSelect.prop('disabled', true);
+            btnAgregarSubcategoria.prop('disabled', true);
+            subcategoriaSelect.empty();
+            subcategoriaSelect.append('<option value="">Primero seleccione una categoría</option>');
+        }
+    });
+
+    // Manejar el cálculo automático de precios en el formulario de edición
+    $('#id_PrecioCosto_editar').on('input', function() {
+        const precioCosto = parseFloat($(this).val()) || 0;
+        
+        if (!$('#id_PrecioDeContado_editar').data('modified')) {
+            $('#id_PrecioDeContado_editar').val((precioCosto * (1 + porcentajeContado/100)).toFixed(2));
+        }
+        if (!$('#id_PrecioDeLista_editar').data('modified')) {
+            $('#id_PrecioDeLista_editar').val((precioCosto * (1 + porcentajeLista/100)).toFixed(2));
+        }
+    });
+
+    // Marcar los campos de precio como modificados cuando el usuario los cambie manualmente
+    $('#id_PrecioDeContado_editar, #id_PrecioDeLista_editar').on('input', function() {
+        $(this).data('modified', true);
+    });
+
+    // Manejar el input de marca en el formulario de edición
+    $('#id_Marca_editar').on('input', function() {
+        const selectedOption = $(`#marcas-list-editar option[value="${$(this).val()}"]`);
+        if (selectedOption.length) {
+            $('#id_Marca_id_editar').val(selectedOption.data('id'));
+        } else {
+            $('#id_Marca_id_editar').val('');
+        }
+    });
+
+    // Manejar el input de proveedor en el formulario de edición
+    $('#id_Proveedor_editar').on('input', function() {
+        const selectedOption = $(`#proveedores-list-editar option[value="${$(this).val()}"]`);
+        if (selectedOption.length) {
+            $('#id_Proveedor_id_editar').val(selectedOption.data('id'));
+        } else {
+            $('#id_Proveedor_id_editar').val('');
+        }
+    });
+});
+</script>
 {% endblock %}

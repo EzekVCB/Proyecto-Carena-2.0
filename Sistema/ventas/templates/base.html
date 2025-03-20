@@ -1,12 +1,12 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <link rel="icon" type="image/x-icon" href="{% static 'img/logo.png' %}">
+  <link rel="icon" type="image/x-icon" href="{% static 'index/img/logo.png' %}">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="{% static 'lib/adminlite/plugins/fontawesome-free/css/all.min.css' %}">
   <!-- Tempusdominus Bootstrap 4 -->
@@ -25,12 +25,14 @@
   <!-- summernote -->
   <link rel="stylesheet" href="{% static 'lib/adminlite/plugins/summernote/summernote-bs4.min.css' %}">
   <link rel="stylesheet" href="{% static 'index/css/main.css' %}">
+  <!-- DataTables -->
   <link rel="stylesheet" type="text/css" href="{% static 'index/DataTables/datatables.min.css' %}">
-  <link rel="stylesheet" type="text/css"
-    href="{% static 'index/DataTables/Buttons-2.0.1/css/buttons.dataTables.min.css' %}">
-
-  <script type="text/javascript" charset="utf8" src="{% static 'index/js/jquery.js' %}"></script>
+  <link rel="stylesheet" type="text/css" href="{% static 'index/DataTables/Buttons-2.0.1/css/buttons.dataTables.min.css' %}">
+  <!-- jQuery UI -->
   <link rel="stylesheet" href="{% static 'jquery-ui/jquery-ui.min.css' %}">
+
+  <!-- jQuery -->
+  <script type="text/javascript" charset="utf8" src="{% static 'index/js/jquery.js' %}"></script>
   <script src="{% static 'jquery-ui/jquery-ui.min.js' %}"></script>
   <script type="text/javascript" charset="utf8" src="{% static 'index/js/sweet.js' %}"></script>
 
@@ -51,22 +53,10 @@
       <!-- Right navbar links -->
       <ul class="navbar-nav ml-auto">
         <!-- Notifications Dropdown Menu -->
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
-          {{ user.username }} <i class="fas fa-user"></i>
+        <li class="nav-item">
+          <a class="nav-link" data-widget="fullscreen" href="#" role="button">
+            <i class="fas fa-expand-arrows-alt"></i>
           </a>
-          <div class="dropdown-menu dropdown-menu-right">
-            {% if user.is_authenticated %}
-            <a class="dropdown-item" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-              <i class="fas fa-sign-out-alt"></i> Cerrar sesión
-            </a>
-            <form id="logout-form" method="post" action="{% url 'Logout' %}" style="display: none;">
-              {% csrf_token %}
-            </form>
-            {% else %}
-            <a class="dropdown-item" href="{% url 'Login' %}">Iniciar sesión</a>
-            {% endif %}
-          </div>
         </li>
       </ul>
     </nav>
@@ -76,9 +66,9 @@
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
       <!-- Brand Logo -->
       <a href="{% url 'Index' %}" class="brand-link">
-        <img src="{% static 'img/logo.png' %}" alt="Logo" class="brand-image img-circle elevation-3"
+        <img src="{% static 'img/logoSinFondo.png' %}" alt="Logo" class="brand-image img-circle elevation-3"
           style="opacity: .8">
-        <span class="brand-text font-weight-light">Punto Venta</span>
+        <span class="brand-text font-weight-light">Fragancia Hogar</span>
       </a>
 
       <!-- Sidebar -->
@@ -120,6 +110,14 @@
                 <i class="nav-icon fas fa-industry"></i>
                 <p>
                   Compras
+                </p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'proveedores' %}" class="nav-link">
+                <i class="nav-icon fas fa-truck"></i>
+                <p>
+                  Proveedores
                 </p>
               </a>
             </li>
@@ -166,12 +164,6 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="{% url 'Proveedores' %}" class="nav-link">
-                <i class="nav-icon fas fa-users-cog"></i>
-                <p>Proveedores</p>
-              </a>
-            </li>
-            <li class="nav-item">
               <a href="" class="nav-link">
                 <i class="nav-icon fas fa-users-line"></i>
                 <p>Dashboard</p>
@@ -215,47 +207,38 @@
   </div>
   <!-- ./wrapper -->
 
-  <!-- jQuery -->
+  <!-- SCRIPTS -->
+  <!-- jQuery and jQuery UI -->
   <script src="{% static 'lib/adminlite/plugins/jquery/jquery.min.js' %}"></script>
-  <!-- jQuery UI 1.11.4 -->
   <script src="{% static 'lib/adminlite/plugins/jquery-ui/jquery-ui.min.js' %}"></script>
-  <!-- Resolve conflict in jQuery UI tooltip with Bootstrap tooltip -->
-  <script>
-    $.widget.bridge('uibutton', $.ui.button)
-  </script>
+  <script>$.widget.bridge('uibutton', $.ui.button)</script>
+
   <!-- Bootstrap 4 -->
   <script src="{% static 'lib/adminlite/plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-  <!-- ChartJS -->
-  <!-- Sparkline -->
-  <script src="{% static 'lib/adminlite/plugins/sparklines/sparkline.js' %}"></script>
-  <!-- JQVMap -->
-  <script src="{% static 'lib/adminlite/plugins/jqvmap/jquery.vmap.min.js' %}"></script>
-  <script src="{% static 'lib/adminlite/plugins/jqvmap/maps/jquery.vmap.usa.js' %}"></script>
-  <!-- jQuery Knob Chart -->
-  <script src="{% static 'lib/adminlite/plugins/jquery-knob/jquery.knob.min.js' %}"></script>
-  <!-- daterangepicker -->
+  
+  <!-- AdminLTE Core -->
+  <script src="{% static 'lib/adminlite/js/adminlte.js' %}"></script>
+  
+  <!-- Plugins -->
   <script src="{% static 'lib/adminlite/plugins/moment/moment.min.js' %}"></script>
   <script src="{% static 'lib/adminlite/plugins/daterangepicker/daterangepicker.js' %}"></script>
-  <!-- Tempusdominus Bootstrap 4 -->
-  <script
-    src="{% static 'lib/adminlite/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js' %}"></script>
-  <!-- Summernote -->
-  <script src=" {% static 'lib/adminlite/plugins/summernote/summernote-bs4.min.js' %}"></script>
-  <!-- overlayScrollbars -->
-  <script src=" {% static 'lib/adminlite/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js' %}"></script>
-  <!-- AdminLTE App -->
-  <script src="{% static 'lib/adminlite/js/adminlte.js' %}"></script>
-  <!-- AdminLTE for demo purposes -->
-  <script src="{% static 'lib/adminlite/js/demo.js' %}"></script>
-  <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-  <script src="{% static 'lib/adminlite/js/pages/dashboard.js' %}"></script>
-  <script src="{% static 'index/DataTables/datatables.min.js' %}"></script>
+  <script src="{% static 'lib/adminlite/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js' %}"></script>
+  <script src="{% static 'lib/adminlite/plugins/summernote/summernote-bs4.min.js' %}"></script>
+  <script src="{% static 'lib/adminlite/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js' %}"></script>
+  
+  <!-- DataTables and Buttons -->
   <script src="{% static 'index/DataTables/datatables.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/dataTables.buttons.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/buttons.print.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/buttons.html5.min.js' %}"></script>
   <script src="{% static 'index/DataTables/Buttons-2.0.1/js/pdfmaker.min.js' %}"></script>
-  <script type="text/javascript" charset="utf8" src="{% static 'index/js/main.js' %}"></script>
+
+  <!-- SweetAlert -->
+  <script src="{% static 'index/js/sweet.js' %}"></script>
+
+  <!-- Custom Scripts -->
+  {% block extra_js %}{% endblock %}
+  <script src="{% static 'index/js/main.js' %}"></script>
 </body>
 
 </html>

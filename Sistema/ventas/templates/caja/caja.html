@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Control de Caja</h3>
+                </div>
+                <div class="card-body">
+                    {% if not caja_actual %}
+                        <!-- Formulario para abrir caja -->
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle"></i> No hay una caja abierta</h5>
+                            <p>Para comenzar las operaciones del día, debe abrir la caja.</p>
+                        </div>
+                        <form method="POST" class="form-horizontal">
+                            {% csrf_token %}
+                            <div class="form-group row">
+                                <label class="col-sm-2 col-form-label">Monto Inicial</label>
+                                <div class="col-sm-4">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                        <input type="number" name="monto_inicial" class="form-control" step="0.01" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <button type="submit" name="abrir_caja" class="btn btn-success">
+                                        <i class="fas fa-cash-register"></i> Abrir Caja
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    {% else %}
+                        <!-- Información de la caja actual -->
+                        <div class="row">
+                            <div class="col-md-3 col-sm-6 col-12">
+                                <div class="info-box">
+                                    <span class="info-box-icon bg-info"><i class="fas fa-cash-register"></i></span>
+                                    <div class="info-box-content">
+                                        <span class="info-box-text">Monto Inicial</span>
+                                        <span class="info-box-number">${{ caja_actual.monto_inicial }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 col-12">
+                                <div class="info-box">
+                                    <span class="info-box-icon bg-success"><i class="fas fa-shopping-cart"></i></span>
+                                    <div class="info-box-content">
+                                        <span class="info-box-text">Total Ventas</span>
+                                        <span class="info-box-number">${{ total_ventas }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 col-12">
+                                <div class="info-box">
+                                    <span class="info-box-icon bg-warning"><i class="fas fa-money-bill"></i></span>
+                                    <div class="info-box-content">
+                                        <span class="info-box-text">Efectivo</span>
+                                        <span class="info-box-number">${{ total_efectivo }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6 col-12">
+                                <div class="info-box">
+                                    <span class="info-box-icon bg-danger"><i class="fas fa-credit-card"></i></span>
+                                    <div class="info-box-content">
+                                        <span class="info-box-text">Tarjeta/Transferencia</span>
+                                        <span class="info-box-number">${{ total_tarjeta|add:total_transferencia }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabs para diferentes secciones -->
+                        <div class="card card-primary card-outline card-tabs">
+                            <div class="card-header p-0 pt-1 border-bottom-0">
+                                <ul class="nav nav-tabs" role="tablist">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" data-toggle="pill" href="#ventas" role="tab">
+                                            Ventas del Día
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-toggle="pill" href="#movimientos" role="tab">
+                                            Movimientos
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-toggle="pill" href="#cierre" role="tab">
+                                            Cierre de Caja
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body">
+                                <div class="tab-content">
+                                    <!-- Tab Ventas -->
+                                    <div class="tab-pane fade show active" id="ventas" role="tabpanel">
+                                        <table class="table table-bordered table-striped" id="tabla-ventas">
+                                            <thead>
+                                                <tr>
+                                                    <th>Hora</th>
+                                                    <th>Cliente</th>
+                                                    <th>Total</th>
+                                                    <th>Forma de Pago</th>
+                                                    <th>Estado</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for venta in ventas_dia %}
+                                                <tr>
+                                                    <td>{{ venta.fecha|date:"H:i" }}</td>
+                                                    <td>{{ venta.cliente|default:"Cliente General" }}</td>
+                                                    <td>${{ venta.total }}</td>
+                                                    <td>{{ venta.get_forma_pago_display }}</td>
+                                                    <td>
+                                                        <span class="badge badge-success">
+                                                            {{ venta.get_estado_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <a href="#" class="btn btn-info btn-sm">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="6" class="text-center">No hay ventas registradas</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Tab Movimientos -->
+                                    <div class="tab-pane fade" id="movimientos" role="tabpanel">
+                                        <!-- Formulario para nuevo movimiento -->
+                                        <form method="POST" class="mb-4">
+                                            {% csrf_token %}
+                                            <div class="row">
+                                                <div class="col-md-2">
+                                                    <div class="form-group">
+                                                        <label>Tipo</label>
+                                                        <select name="tipo" class="form-control" required>
+                                                            <option value="">Seleccione...</option>
+                                                            <option value="INGRESO">Ingreso</option>
+                                                            <option value="EGRESO">Egreso</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-group">
+                                                        <label>Concepto</label>
+                                                        <input type="text" name="concepto" class="form-control" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <div class="form-group">
+                                                        <label>Monto</label>
+                                                        <input type="number" name="monto" class="form-control" step="0.01" required>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label>Observación</label>
+                                                        <input type="text" name="observacion" class="form-control">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-1">
+                                                    <div class="form-group">
+                                                        <label>&nbsp;</label>
+                                                        <button type="submit" name="registrar_movimiento" class="btn btn-primary btn-block">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </form>
+
+                                        <!-- Tabla de movimientos -->
+                                        <table class="table table-bordered table-striped" id="tabla-movimientos">
+                                            <thead>
+                                                <tr>
+                                                    <th>Hora</th>
+                                                    <th>Tipo</th>
+                                                    <th>Concepto</th>
+                                                    <th>Monto</th>
+                                                    <th>Usuario</th>
+                                                    <th>Observación</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for movimiento in movimientos %}
+                                                <tr>
+                                                    <td>{{ movimiento.fecha_hora|date:"H:i" }}</td>
+                                                    <td>
+                                                        {% if movimiento.tipo == 'INGRESO' %}
+                                                            <span class="badge badge-success">Ingreso</span>
+                                                        {% else %}
+                                                            <span class="badge badge-danger">Egreso</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ movimiento.concepto }}</td>
+                                                    <td>${{ movimiento.monto }}</td>
+                                                    <td>{{ movimiento.usuario }}</td>
+                                                    <td>{{ movimiento.observacion|default:"-" }}</td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="6" class="text-center">No hay movimientos registrados</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Tab Cierre -->
+                                    <div class="tab-pane fade" id="cierre" role="tabpanel">
+                                        <form method="POST" id="form-cierre">
+                                            {% csrf_token %}
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>Monto Final en Efectivo</label>
+                                                        <div class="input-group">
+                                                            <div class="input-group-prepend">
+                                                                <span class="input-group-text">$</span>
+                                                            </div>
+                                                            <input type="number" name="monto_final" class="form-control" step="0.01" required>
+                                                        </div>
+                                                        <small class="form-text text-muted">
+                                                            Ingrese el monto total de efectivo en caja
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>Observaciones</label>
+                                                        <textarea name="observaciones" class="form-control" rows="3"></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <button type="submit" name="cerrar_caja" class="btn btn-danger float-right">
+                                                        <i class="fas fa-lock"></i> Cerrar Caja
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Inicializar DataTables
+    $('#tabla-ventas').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]],
+        "pageLength": 10
+    });
+
+    $('#tabla-movimientos').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]],
+        "pageLength": 10
+    });
+
+    // Confirmar cierre de caja
+    $('#form-cierre').on('submit', function(e) {
+        e.preventDefault();
+        Swal.fire({
+            title: '¿Está seguro?',
+            text: "Una vez cerrada la caja no podrá realizar más operaciones",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, cerrar caja',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        Detalle de Caja - {{ caja.fecha|date:"d/m/Y" }}
+                        {% if caja.estado == 'ABIERTA' %}
+                            <span class="badge badge-success">Abierta</span>
+                        {% else %}
+                            <span class="badge badge-secondary">Cerrada</span>
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Información General -->
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-info">
+                                    <i class="fas fa-cash-register"></i>
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Monto Inicial</span>
+                                    <span class="info-box-number">${{ caja.monto_inicial }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-success">
+                                    <i class="fas fa-shopping-cart"></i>
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Total Ventas</span>
+                                    <span class="info-box-number">${{ caja.total_ventas }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-warning">
+                                    <i class="fas fa-money-bill"></i>
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Monto Final</span>
+                                    <span class="info-box-number">
+                                        {% if caja.monto_final %}
+                                            ${{ caja.monto_final }}
+                                        {% else %}
+                                            Pendiente
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="info-box">
+                                <span class="info-box-icon bg-danger">
+                                    <i class="fas fa-balance-scale"></i>
+                                </span>
+                                <div class="info-box-content">
+                                    <span class="info-box-text">Diferencia</span>
+                                    <span class="info-box-number">
+                                        {% if caja.diferencia %}
+                                            {% if caja.diferencia < 0 %}
+                                                <span class="text-danger">-${{ caja.diferencia|abs }}</span>
+                                            {% elif caja.diferencia > 0 %}
+                                                <span class="text-success">+${{ caja.diferencia }}</span>
+                                            {% else %}
+                                                $0.00
+                                            {% endif %}
+                                        {% else %}
+                                            Pendiente
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detalles adicionales -->
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="fas fa-info-circle"></i> Información Adicional
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <dl class="row">
+                                        <dt class="col-sm-4">Apertura</dt>
+                                        <dd class="col-sm-8">{{ caja.hora_apertura|time:"H:i" }} - {{ caja.usuario_apertura }}</dd>
+                                        
+                                        <dt class="col-sm-4">Cierre</dt>
+                                        <dd class="col-sm-8">
+                                            {% if caja.hora_cierre %}
+                                                {{ caja.hora_cierre|time:"H:i" }} - {{ caja.usuario_cierre }}
+                                            {% else %}
+                                                Pendiente
+                                            {% endif %}
+                                        </dd>
+                                        
+                                        <dt class="col-sm-4">Total Efectivo</dt>
+                                        <dd class="col-sm-8">${{ caja.total_efectivo }}</dd>
+                                        
+                                        <dt class="col-sm-4">Total Tarjeta</dt>
+                                        <dd class="col-sm-8">${{ caja.total_tarjeta }}</dd>
+                                        
+                                        <dt class="col-sm-4">Total Transferencia</dt>
+                                        <dd class="col-sm-8">${{ caja.total_transferencia }}</dd>
+                                        
+                                        {% if caja.observaciones %}
+                                        <dt class="col-sm-4">Observaciones</dt>
+                                        <dd class="col-sm-8">{{ caja.observaciones }}</dd>
+                                        {% endif %}
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="fas fa-chart-pie"></i> Resumen de Ventas
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="graficoVentas" style="min-height: 250px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs de Ventas y Movimientos -->
+                    <div class="card card-primary card-outline card-tabs mt-4">
+                        <div class="card-header p-0 pt-1 border-bottom-0">
+                            <ul class="nav nav-tabs" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-toggle="pill" href="#ventas" role="tab">
+                                        Ventas
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-toggle="pill" href="#movimientos" role="tab">
+                                        Movimientos
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <!-- Tab Ventas -->
+                                <div class="tab-pane fade show active" id="ventas" role="tabpanel">
+                                    <table class="table table-bordered table-striped" id="tabla-ventas">
+                                        <thead>
+                                            <tr>
+                                                <th>Hora</th>
+                                                <th>Cliente</th>
+                                                <th>Total</th>
+                                                <th>Forma de Pago</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for venta in ventas %}
+                                            <tr>
+                                                <td>{{ venta.fecha|date:"H:i" }}</td>
+                                                <td>{{ venta.cliente|default:"Cliente General" }}</td>
+                                                <td>${{ venta.total }}</td>
+                                                <td>{{ venta.get_forma_pago_display }}</td>
+                                                <td>
+                                                    <span class="badge badge-success">
+                                                        {{ venta.get_estado_display }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <a href="#" class="btn btn-info btn-sm">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="6" class="text-center">No hay ventas registradas</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Tab Movimientos -->
+                                <div class="tab-pane fade" id="movimientos" role="tabpanel">
+                                    <table class="table table-bordered table-striped" id="tabla-movimientos">
+                                        <thead>
+                                            <tr>
+                                                <th>Hora</th>
+                                                <th>Tipo</th>
+                                                <th>Concepto</th>
+                                                <th>Monto</th>
+                                                <th>Usuario</th>
+                                                <th>Observación</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for movimiento in movimientos %}
+                                            <tr>
+                                                <td>{{ movimiento.fecha_hora|date:"H:i" }}</td>
+                                                <td>
+                                                    {% if movimiento.tipo == 'INGRESO' %}
+                                                        <span class="badge badge-success">Ingreso</span>
+                                                    {% else %}
+                                                        <span class="badge badge-danger">Egreso</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ movimiento.concepto }}</td>
+                                                <td>${{ movimiento.monto }}</td>
+                                                <td>{{ movimiento.usuario }}</td>
+                                                <td>{{ movimiento.observacion|default:"-" }}</td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="6" class="text-center">No hay movimientos registrados</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTables
+    $('#tabla-ventas').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]],
+        "pageLength": 10
+    });
+
+    $('#tabla-movimientos').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]],
+        "pageLength": 10
+    });
+
+    // Gráfico de ventas por forma de pago
+    var ctx = document.getElementById('graficoVentas').getContext('2d');
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Efectivo', 'Tarjeta', 'Transferencia'],
+            datasets: [{
+                data: [
+                    {{ caja.total_efectivo }},
+                    {{ caja.total_tarjeta }},
+                    {{ caja.total_transferencia }}
+                ],
+                backgroundColor: [
+                    '#28a745',
+                    '#dc3545',
+                    '#17a2b8'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 

@@ -150,37 +150,65 @@ function activarEspera(){
   btn.disabled = true;
 }
 
-$(document).ready(function () {
+// Configuración por defecto para DataTables (disponible globalmente)
+window.defaultDatatableConfig = {
+  "language": {
+    "url": "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+  },
+  "pageLength": 25,
+  "responsive": true,
+  "autoWidth": false,
+  "dom": 'Bfrtip',
+  "buttons": [
+    {
+      extend: 'excel',
+      text: '<i class="fas fa-file-excel"></i> Excel',
+      className: 'btn btn-success btn-sm',
+      exportOptions: {
+        columns: ':not(:last-child)'
+      }
+    },
+    {
+      extend: 'pdf',
+      text: '<i class="fas fa-file-pdf"></i> PDF',
+      className: 'btn btn-danger btn-sm',
+      exportOptions: {
+        columns: ':not(:last-child)'
+      }
+    },
+    {
+      extend: 'print',
+      text: '<i class="fas fa-print"></i> Imprimir',
+      className: 'btn btn-info btn-sm',
+      exportOptions: {
+        columns: ':not(:last-child)'
+      }
+    }
+  ]
+};
 
-  $('#myTable').DataTable({
-    "language": {
-      "url": "../static/index/js/idiom.json"},
-    "lengthMenu": [[10, 25, 50], [10, 25, 50]],
-    dom: 'Bfrtip',
-    buttons: [
-      { extend: 'csv' },
-      { extend: 'print'},
-    ]
-  });
-  $('#table2').DataTable({
-    "language": {
-      "url": "../static/index/js/idiom.json"},
-    "lengthMenu": [[10, 25, 50], [10, 25, 50]],
-    dom: 'Bfrtip',
-    buttons: [
-      { extend: 'csv' },
-      { extend: 'print'},
-    ]
-  });
-  $('#table3').DataTable({
-    "language": {
-      "url": "../static/index/js/idiom.json"},
-    "lengthMenu": [[10, 25, 50], [10, 25, 50]],
-    dom: 'Bfrtip',
-    buttons: [
-      { extend: 'csv' },
-      { extend: 'print'},
-    ]
-  });
+// Inicializar DataTables solo si la tabla existe y no está ya inicializada
+$(document).ready(function () {
+  // Para tablas que necesitan configuración específica
+  if ($('#myTable').length && !$.fn.DataTable.isDataTable('#myTable')) {
+    $('#myTable').DataTable({
+      ...defaultDatatableConfig,
+      "order": [[0, "desc"]] // Ordenar primera columna descendente
+    });
+  }
+
+  if ($('#table2').length && !$.fn.DataTable.isDataTable('#table2')) {
+    $('#table2').DataTable({
+      ...defaultDatatableConfig,
+      "pageLength": 10
+    });
+  }
+
+  if ($('#table3').length && !$.fn.DataTable.isDataTable('#table3')) {
+    $('#table3').DataTable({
+      ...defaultDatatableConfig,
+      "pageLength": 10
+    });
+  }
 });
  
