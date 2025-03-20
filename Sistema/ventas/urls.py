@@ -63,4 +63,5 @@ urlpatterns = [
     path('get_producto/', views.get_producto, name='get_producto'),
     path('add_marca/', views.add_marca_view, name='AddMarca'),
     path('add_unidad/', views.add_unidad_view, name='AddUnidad'),
+    path('delete_subcategoria/', views.delete_subcategoria_view, name='DeleteSubcategoria'),
 ]

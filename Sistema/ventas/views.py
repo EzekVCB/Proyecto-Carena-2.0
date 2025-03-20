@@ -1170,7 +1170,8 @@ def get_subcategorias(request):
 def add_subcategoria_view(request):
     if request.method == "POST":
         try:
-            categoria = Categoria.objects.get(pk=request.POST.get('Categoria'))
+            categoria_id = request.POST.get('Categoria')
+            categoria = Categoria.objects.get(pk=categoria_id)
             nombre = request.POST.get('Nombre')
             subcategoria = SubCategoria.objects.create(
                 Nombre=nombre,
@@ -1185,11 +1186,18 @@ def add_subcategoria_view(request):
                     'message': 'Subcategoría creada correctamente',
                     'subcategoria': {
                         'id': subcategoria.id,
-                        'nombre': subcategoria.Nombre
+                        'Nombre': subcategoria.Nombre
                     },
                     'subcategorias': [{'id': s.id, 'Nombre': s.Nombre} for s in subcategorias]
                 })
             messages.success(request, "Subcategoría agregada exitosamente.")
+        except Categoria.DoesNotExist:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'La categoría seleccionada no existe'
+                })
+            messages.error(request, "La categoría seleccionada no existe")
         except Exception as e:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
@@ -1633,6 +1641,35 @@ def eliminar_compra(request):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Método no permitido'})
+
+def delete_subcategoria_view(request):
+    if request.method == "POST":
+        try:
+            subcategoria_id = request.POST.get('subcategoria_id')
+            subcategoria = SubCategoria.objects.get(pk=subcategoria_id)
+            subcategoria.delete()
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Subcategoría eliminada correctamente'
+                })
+            messages.success(request, "Subcategoría eliminada exitosamente.")
+        except SubCategoria.DoesNotExist:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'La subcategoría no existe'
+                })
+            messages.error(request, "La subcategoría no existe")
+        except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Error al eliminar la subcategoría: {str(e)}'
+                })
+            messages.error(request, f"Error al eliminar la subcategoría: {str(e)}")
+    return redirect('Categorias')
 
 
 

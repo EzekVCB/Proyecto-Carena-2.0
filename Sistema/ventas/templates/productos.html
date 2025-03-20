@@ -239,6 +239,9 @@
             return;
         }
         
+        // Asegurarnos de que la categoría se envíe correctamente
+        formData.set('Categoria', categoriaId);
+        
         $.ajax({
             url: '{% url "AddSubcategoria" %}',
             type: 'POST',
@@ -263,11 +266,11 @@
                                 subcategoria.Nombre + '</option>'
                             );
                         });
-                    }
-                    
-                    // Seleccionar la nueva subcategoría si está disponible
-                    if (response.subcategoria && response.subcategoria.id) {
-                        subcategoriaSelect.val(response.subcategoria.id);
+                        
+                        // Seleccionar la nueva subcategoría si está disponible
+                        if (response.subcategoria && response.subcategoria.id) {
+                            subcategoriaSelect.val(response.subcategoria.id);
+                        }
                     }
                     
                     // Cerrar el modal
@@ -289,6 +292,7 @@
                 }
             },
             error: function(xhr, errmsg, err) {
+                console.error('Error:', err);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
