@@ -90,6 +90,9 @@ function finalizarVentaDirecto() {
 // Función para mostrar errores en el modal
 function mostrarErrorEnModal(mensaje) {
     const modalBody = document.getElementById('resultadoVentaModalBody');
+    const btnNuevaVenta = document.getElementById('btnNuevaVenta');
+    const btnImprimirTicket = document.getElementById('btnImprimirTicket');
+    
     modalBody.innerHTML = `
         <div class="text-center">
             <i class="fas fa-exclamation-circle text-danger" style="font-size: 64px;"></i>
@@ -97,5 +100,10 @@ function mostrarErrorEnModal(mensaje) {
             <p class="mt-3">${mensaje}</p>
         </div>
     `;
+    
+    // Ocultar los botones cuando hay error
+    btnNuevaVenta.style.display = 'none';
+    btnImprimirTicket.style.display = 'none';
+    
     $('#resultadoVentaModal').modal('show');
 }

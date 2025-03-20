@@ -281,10 +281,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="nuevaVenta()">
+                <button type="button" class="btn btn-primary" onclick="nuevaVenta()" id="btnNuevaVenta" style="display: none;">
                     <i class="fas fa-plus-circle mr-2"></i>Nueva Venta
                 </button>
-                <button type="button" class="btn btn-success" onclick="imprimirTicket()">
+                <button type="button" class="btn btn-success" onclick="imprimirTicket()" id="btnImprimirTicket" style="display: none;">
                     <i class="fas fa-print mr-2"></i>Imprimir Ticket
                 </button>
             </div>
@@ -307,6 +307,9 @@
         if (ventaExitosa) {
             // Mostrar modal de éxito
             const modalBody = document.getElementById('resultadoVentaModalBody');
+            const btnNuevaVenta = document.getElementById('btnNuevaVenta');
+            const btnImprimirTicket = document.getElementById('btnImprimirTicket');
+            
             modalBody.innerHTML = `
                 <div class="text-center">
                     <i class="fas fa-check-circle text-success" style="font-size: 64px;"></i>
@@ -314,10 +317,14 @@
                     <p class="mt-3">La venta #${ventaExitosa} ha sido registrada correctamente.</p>
                 </div>
             `;
+            
+            // Mostrar los botones cuando la venta es exitosa
+            btnNuevaVenta.style.display = 'inline-block';
+            btnImprimirTicket.style.display = 'inline-block';
+            
             $('#resultadoVentaModal').modal('show');
             
             // Configurar el botón de imprimir ticket
-            const btnImprimirTicket = document.getElementById('btnImprimirTicket');
             if (btnImprimirTicket) {
                 btnImprimirTicket.addEventListener('click', function() {
                     if (ventaId) {
