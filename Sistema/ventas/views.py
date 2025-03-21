@@ -415,6 +415,19 @@ def ventas_view(request):
                     # Actualizar stock
                     producto.Cantidad -= detalle.Cantidad
                     producto.save()
+                    
+                    # Registrar movimiento de stock
+                    MovimientoStock.objects.create(
+                        Fecha=venta.Fecha,
+                        Producto=producto,
+                        Tipo='SALIDA',
+                        Cantidad=detalle.Cantidad,
+                        StockAnterior=producto.Cantidad + detalle.Cantidad,
+                        StockResultante=producto.Cantidad,
+                        OrigenMovimiento='VENTA',
+                        Usuario=request.user,
+                        Observaciones=f'Venta #{venta.NumeroComprobate}'
+                    )
                 
                 # 5. Registrar los pagos
                 if medio_pago_principal_id:
@@ -779,105 +792,51 @@ def guardar_cliente_ajax(request):
 # Vistas para Historial de Movimientos de Stock
 @login_required
 def historial_movimientos(request):
-    """
-    Vista para mostrar el historial de movimientos de stock con filtros.
-    """
-    # Establecer fechas predeterminadas (un mes atrás hasta hoy)
-    hoy = timezone.now().date()
-    un_mes_atras = hoy - timezone.timedelta(days=30)
-    
-    # Obtener parámetros de filtrado
+    # Obtener parámetros de filtro
     producto_id = request.GET.get('producto')
-    categoria_id = request.GET.get('categoria')
-    subcategoria_id = request.GET.get('subcategoria')
-    marca_id = request.GET.get('marca')
-    cliente_id = request.GET.get('cliente')
     tipo = request.GET.get('tipo')
     origen = request.GET.get('origen')
-    fecha_desde = request.GET.get('fecha_desde', un_mes_atras.strftime('%Y-%m-%d'))
-    fecha_hasta = request.GET.get('fecha_hasta', hoy.strftime('%Y-%m-%d'))
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
     
     # Iniciar con todos los movimientos
     movimientos = MovimientoStock.objects.all()
     
-    # Aplicar filtros si se proporcionan
+    # Aplicar filtros
     if producto_id:
         movimientos = movimientos.filter(Producto_id=producto_id)
-    
-    if categoria_id:
-        movimientos = movimientos.filter(Producto__Categoria_id=categoria_id)
-    
-    if subcategoria_id:
-        movimientos = movimientos.filter(Producto__SubCategoria_id=subcategoria_id)
-    
-    if marca_id:
-        movimientos = movimientos.filter(Producto__Marca_id=marca_id)
-    
-    if cliente_id and origen == 'VENTA':
-        # Filtrar por cliente solo si el origen es VENTA
-        # Asumiendo que hay una relación entre MovimientoStock y Venta a través del campo Detalle
-        movimientos = movimientos.filter(OrigenMovimiento='VENTA', Detalle__icontains=cliente_id)
-    
     if tipo:
         movimientos = movimientos.filter(Tipo=tipo)
-    
     if origen:
         movimientos = movimientos.filter(OrigenMovimiento=origen)
-    
     if fecha_desde:
-        try:
-            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d')
-            fecha_desde_obj = datetime.combine(fecha_desde_obj.date(), time.min)
-            movimientos = movimientos.filter(Fecha__gte=fecha_desde_obj)
-        except ValueError:
-            messages.error(request, 'Formato de fecha inválido para Fecha Desde')
-    
+        movimientos = movimientos.filter(Fecha__gte=fecha_desde)
     if fecha_hasta:
-        try:
-            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d')
-            fecha_hasta_obj = datetime.combine(fecha_hasta_obj.date(), time.max)
-            movimientos = movimientos.filter(Fecha__lte=fecha_hasta_obj)
-        except ValueError:
-            messages.error(request, 'Formato de fecha inválido para Fecha Hasta')
+        movimientos = movimientos.filter(Fecha__lte=fecha_hasta)
     
     # Ordenar por fecha descendente
     movimientos = movimientos.order_by('-Fecha')
     
     # Paginación
-    paginator = Paginator(movimientos, 50)  # 50 movimientos por página
+    paginator = Paginator(movimientos, 20)  # 20 movimientos por página
     page = request.GET.get('page')
-    movimientos_paginados = paginator.get_page(page)
+    try:
+        movimientos = paginator.page(page)
+    except PageNotAnInteger:
+        movimientos = paginator.page(1)
+    except EmptyPage:
+        movimientos = paginator.page(paginator.num_pages)
     
-    # Obtener datos para los filtros
-    productos = Producto.objects.all().order_by('Nombre')
-    categorias = Categoria.objects.all().order_by('Nombre')
-    subcategorias = SubCategoria.objects.all().order_by('Nombre')
-    marcas = Marca.objects.all().order_by('Nombre')
-    clientes = Cliente.objects.all().order_by('Nombre')
+    # Formulario de búsqueda
+    form = BusquedaMovimientosForm(request.GET)
     
     context = {
-        'movimientos': movimientos_paginados,
-        'productos': productos,
-        'categorias': categorias,
-        'subcategorias': subcategorias,
-        'marcas': marcas,
-        'clientes': clientes,
-        'tipos': MovimientoStock.TIPO_CHOICES,
-        'origenes': MovimientoStock.ORIGEN_CHOICES,
-        'filtros': {
-            'producto_id': producto_id,
-            'categoria_id': categoria_id,
-            'subcategoria_id': subcategoria_id,
-            'marca_id': marca_id,
-            'cliente_id': cliente_id,
-            'tipo': tipo,
-            'origen': origen,
-            'fecha_desde': fecha_desde,
-            'fecha_hasta': fecha_hasta,
-        }
+        'movimientos': movimientos,
+        'form': form,
+        'titulo': 'Historial de Movimientos de Stock'
     }
     
-    return render(request, 'historial_movimientos.html', context)
+    return render(request, 'ventas/historial_movimientos.html', context)
 
 # Vistas para Ajustes de Inventario
 @login_required
@@ -1429,6 +1388,19 @@ def compras_view(request):
                         PrecioUnitario=precio
                     )
                     
+                    # Registrar movimiento de stock
+                    MovimientoStock.objects.create(
+                        Fecha=compra.Fecha,
+                        Producto=producto,
+                        Tipo='ENTRADA',
+                        Cantidad=cantidad,
+                        StockAnterior=producto.Cantidad - cantidad,
+                        StockResultante=producto.Cantidad,
+                        OrigenMovimiento='COMPRA',
+                        Usuario=request.user,
+                        Observaciones=f'Compra #{compra.id}'
+                    )
+                    
                     total += precio * cantidad
             
             # Actualizar el total de la compra
@@ -1672,6 +1644,19 @@ def editar_compra(request):
                         PrecioUnitario=precio
                     )
                     
+                    # Registrar movimiento de stock
+                    MovimientoStock.objects.create(
+                        Fecha=compra.Fecha,
+                        Producto=producto,
+                        Tipo='ENTRADA',
+                        Cantidad=cantidad,
+                        StockAnterior=producto.Cantidad - cantidad,
+                        StockResultante=producto.Cantidad,
+                        OrigenMovimiento='COMPRA',
+                        Usuario=request.user,
+                        Observaciones=f'Compra #{compra.id}'
+                    )
+                    
                     total += precio * cantidad
             
             # Actualizar el total de la compra
@@ -1903,6 +1888,42 @@ def obtener_pagos_compra(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def ajuste_stock_view(request):
+    if request.method == 'POST':
+        form = MovimientoStockForm(request.POST)
+        if form.is_valid():
+            movimiento = form.save(commit=False)
+            producto = movimiento.Producto
+            movimiento.StockAnterior = producto.Cantidad
+            movimiento.Usuario = request.user
+            
+            # Actualizar el stock del producto
+            if movimiento.Tipo == 'ENTRADA':
+                producto.Cantidad += movimiento.Cantidad
+            else:  # SALIDA
+                if producto.Cantidad < movimiento.Cantidad:
+                    messages.error(request, 'No hay suficiente stock disponible')
+                    return redirect('ajuste_stock')
+                producto.Cantidad -= movimiento.Cantidad
+            
+            movimiento.StockResultante = producto.Cantidad
+            
+            # Guardar los cambios en una transacción
+            with transaction.atomic():
+                movimiento.save()
+                producto.save()
+            
+            messages.success(request, 'Ajuste de stock registrado correctamente')
+            return redirect('historial_movimientos')
+    else:
+        form = MovimientoStockForm()
+    
+    return render(request, 'ventas/ajuste_stock.html', {
+        'form': form,
+        'titulo': 'Ajuste de Stock'
+    })
 
 
 

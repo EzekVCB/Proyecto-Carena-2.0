@@ -2,206 +2,144 @@
 {% load static %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <h1 class="h3 mb-4 text-gray-800">
-        <i class="fas fa-exchange-alt mr-2"></i>Historial de Movimientos de Stock
-    </h1>
-    
-    <!-- Filtros -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 bg-primary text-white">
-            <h6 class="m-0 font-weight-bold">
-                <i class="fas fa-filter mr-2"></i>Filtros
-            </h6>
-        </div>
-        <div class="card-body">
-            <form method="GET" action="{% url 'historial_movimientos' %}" class="row">
-                <!-- Filtro por Producto -->
-                <div class="col-md-3 mb-3">
-                    <label for="producto">Producto:</label>
-                    <select name="producto" id="producto" class="form-control">
-                        <option value="">Todos los productos</option>
-                        {% for producto in productos %}
-                        <option value="{{ producto.id }}" {% if filtros.producto_id == producto.id|stringformat:"i" %}selected{% endif %}>
-                            {{ producto.Nombre }}
-                        </option>
-                        {% endfor %}
-                    </select>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ titulo }}</h5>
+                    <a href="{% url 'ajuste_stock' %}" class="btn btn-light btn-sm">
+                        <i class="fas fa-plus"></i> Nuevo Ajuste
+                    </a>
                 </div>
-                
-                <!-- Filtro por Tipo -->
-                <div class="col-md-2 mb-3">
-                    <label for="tipo">Tipo:</label>
-                    <select name="tipo" id="tipo" class="form-control">
-                        <option value="">Todos los tipos</option>
-                        {% for tipo_value, tipo_label in tipos %}
-                        <option value="{{ tipo_value }}" {% if filtros.tipo == tipo_value %}selected{% endif %}>
-                            {{ tipo_label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <!-- Filtro por Origen -->
-                <div class="col-md-2 mb-3">
-                    <label for="origen">Origen:</label>
-                    <select name="origen" id="origen" class="form-control">
-                        <option value="">Todos los orígenes</option>
-                        {% for origen_value, origen_label in origenes %}
-                        <option value="{{ origen_value }}" {% if filtros.origen == origen_value %}selected{% endif %}>
-                            {{ origen_label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <!-- Filtro por Fecha Desde -->
-                <div class="col-md-2 mb-3">
-                    <label for="fecha_desde">Fecha Desde:</label>
-                    <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ filtros.fecha_desde }}">
-                </div>
-                
-                <!-- Filtro por Fecha Hasta -->
-                <div class="col-md-2 mb-3">
-                    <label for="fecha_hasta">Fecha Hasta:</label>
-                    <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ filtros.fecha_hasta }}">
-                </div>
-                
-                <!-- Botones -->
-                <div class="col-md-1 mb-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search mr-1"></i> Filtrar
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Tabla de Movimientos -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 bg-primary text-white d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold">
-                <i class="fas fa-list mr-2"></i>Movimientos de Stock
-            </h6>
-            <button class="btn btn-light btn-sm" id="exportarExcel">
-                <i class="fas fa-file-excel mr-1"></i> Exportar a Excel
-            </button>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="tabla-movimientos" width="100%" cellspacing="0">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Producto</th>
-                            <th>Tipo</th>
-                            <th>Cantidad</th>
-                            <th>Stock Anterior</th>
-                            <th>Stock Resultante</th>
-                            <th>Origen</th>
-                            <th>Detalle</th>
-                            <th>Usuario</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for movimiento in movimientos %}
-                        <tr>
-                            <td>{{ movimiento.Fecha|date:"d/m/Y H:i" }}</td>
-                            <td>{{ movimiento.Producto.Nombre }}</td>
-                            <td>
-                                {% if movimiento.Tipo == 'ENTRADA' %}
-                                <span class="badge badge-success">{{ movimiento.get_Tipo_display }}</span>
-                                {% else %}
-                                <span class="badge badge-danger">{{ movimiento.get_Tipo_display }}</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ movimiento.Cantidad }}</td>
-                            <td>{{ movimiento.StockAnterior }}</td>
-                            <td>{{ movimiento.StockResultante }}</td>
-                            <td>{{ movimiento.get_OrigenMovimiento_display }}</td>
-                            <td>{{ movimiento.Detalle }}</td>
-                            <td>{{ movimiento.Usuario.username|default:"Sistema" }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="9" class="text-center">No se encontraron movimientos de stock</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Paginación -->
-            {% if movimientos.has_other_pages %}
-            <div class="pagination justify-content-center mt-4">
-                <ul class="pagination">
-                    {% if movimientos.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page=1{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; Primera</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Anterior</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link">&laquo; Primera</span>
-                    </li>
-                    <li class="page-item disabled">
-                        <span class="page-link">Anterior</span>
-                    </li>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <form method="get" class="mb-4">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.producto.id_for_label }}">Producto:</label>
+                                    {{ form.producto }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label for="{{ form.tipo.id_for_label }}">Tipo:</label>
+                                    {{ form.tipo }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label for="{{ form.origen.id_for_label }}">Origen:</label>
+                                    {{ form.origen }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label for="{{ form.fecha_desde.id_for_label }}">Desde:</label>
+                                    {{ form.fecha_desde }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label for="{{ form.fecha_hasta.id_for_label }}">Hasta:</label>
+                                    {{ form.fecha_hasta }}
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Tabla de Movimientos -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Producto</th>
+                                    <th>Tipo</th>
+                                    <th>Cantidad</th>
+                                    <th>Stock Anterior</th>
+                                    <th>Stock Resultante</th>
+                                    <th>Origen</th>
+                                    <th>Usuario</th>
+                                    <th>Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movimiento in movimientos %}
+                                <tr>
+                                    <td>{{ movimiento.Fecha|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ movimiento.Producto.Nombre }}</td>
+                                    <td>
+                                        {% if movimiento.Tipo == 'ENTRADA' %}
+                                        <span class="badge badge-success">Entrada</span>
+                                        {% else %}
+                                        <span class="badge badge-danger">Salida</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ movimiento.Cantidad }}</td>
+                                    <td>{{ movimiento.StockAnterior }}</td>
+                                    <td>{{ movimiento.StockResultante }}</td>
+                                    <td>{{ movimiento.get_OrigenMovimiento_display }}</td>
+                                    <td>{{ movimiento.Usuario.username }}</td>
+                                    <td>{{ movimiento.Observaciones|default:"" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center">No se encontraron movimientos</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    {% if movimientos.has_other_pages %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if movimientos.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in movimientos.paginator.page_range %}
+                            <li class="page-item {% if movimientos.number == num %}active{% endif %}">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                            {% endfor %}
+
+                            {% if movimientos.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ movimientos.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
                     {% endif %}
-                    
-                    {% for i in movimientos.paginator.page_range %}
-                        {% if movimientos.number == i %}
-                        <li class="page-item active">
-                            <span class="page-link">{{ i }} <span class="sr-only">(actual)</span></span>
-                        </li>
-                        {% elif i > movimientos.number|add:'-3' and i < movimientos.number|add:'3' %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ i }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
-                        </li>
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {% if movimientos.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ movimientos.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Siguiente</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Última &raquo;</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled">
-                        <span class="page-link">Siguiente</span>
-                    </li>
-                    <li class="page-item disabled">
-                        <span class="page-link">Última &raquo;</span>
-                    </li>
-                    {% endif %}
-                </ul>
+                </div>
             </div>
-            {% endif %}
         </div>
     </div>
 </div>
 
 <script>
-    $(document).ready(function() {
-        // Inicializar DataTable
-        var table = $('#tabla-movimientos').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
-            },
-            "paging": false,
-            "info": false,
-            "searching": false,
-            "order": [[0, 'desc']]
-        });
-        
-        // Exportar a Excel
-        $('#exportarExcel').on('click', function() {
-            table.button('.buttons-excel').trigger();
-        });
+$(document).ready(function() {
+    // Inicializar Select2
+    $('.select2').select2({
+        theme: 'bootstrap4'
     });
+});
 </script>
 {% endblock %} 
