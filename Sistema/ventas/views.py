@@ -16,7 +16,7 @@ from datetime import datetime, time
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 import json
@@ -779,44 +779,105 @@ def guardar_cliente_ajax(request):
 # Vistas para Historial de Movimientos de Stock
 @login_required
 def historial_movimientos(request):
-    form = BusquedaMovimientosForm(request.GET or None)
+    """
+    Vista para mostrar el historial de movimientos de stock con filtros.
+    """
+    # Establecer fechas predeterminadas (un mes atrás hasta hoy)
+    hoy = timezone.now().date()
+    un_mes_atras = hoy - timezone.timedelta(days=30)
     
-    # Consulta base
+    # Obtener parámetros de filtrado
+    producto_id = request.GET.get('producto')
+    categoria_id = request.GET.get('categoria')
+    subcategoria_id = request.GET.get('subcategoria')
+    marca_id = request.GET.get('marca')
+    cliente_id = request.GET.get('cliente')
+    tipo = request.GET.get('tipo')
+    origen = request.GET.get('origen')
+    fecha_desde = request.GET.get('fecha_desde', un_mes_atras.strftime('%Y-%m-%d'))
+    fecha_hasta = request.GET.get('fecha_hasta', hoy.strftime('%Y-%m-%d'))
+    
+    # Iniciar con todos los movimientos
     movimientos = MovimientoStock.objects.all()
     
-    # Aplicar filtros si el formulario es válido
-    if form.is_valid():
-        producto = form.cleaned_data.get('producto')
-        tipo = form.cleaned_data.get('tipo')
-        origen = form.cleaned_data.get('origen')
-        fecha_desde = form.cleaned_data.get('fecha_desde')
-        fecha_hasta = form.cleaned_data.get('fecha_hasta')
-        
-        if producto:
-            movimientos = movimientos.filter(Producto=producto)
-        if tipo:
-            movimientos = movimientos.filter(Tipo=tipo)
-        if origen:
-            movimientos = movimientos.filter(OrigenMovimiento=origen)
-        if fecha_desde:
-            movimientos = movimientos.filter(Fecha__date__gte=fecha_desde)
-        if fecha_hasta:
-            movimientos = movimientos.filter(Fecha__date__lte=fecha_hasta)
+    # Aplicar filtros si se proporcionan
+    if producto_id:
+        movimientos = movimientos.filter(Producto_id=producto_id)
+    
+    if categoria_id:
+        movimientos = movimientos.filter(Producto__Categoria_id=categoria_id)
+    
+    if subcategoria_id:
+        movimientos = movimientos.filter(Producto__SubCategoria_id=subcategoria_id)
+    
+    if marca_id:
+        movimientos = movimientos.filter(Producto__Marca_id=marca_id)
+    
+    if cliente_id and origen == 'VENTA':
+        # Filtrar por cliente solo si el origen es VENTA
+        # Asumiendo que hay una relación entre MovimientoStock y Venta a través del campo Detalle
+        movimientos = movimientos.filter(OrigenMovimiento='VENTA', Detalle__icontains=cliente_id)
+    
+    if tipo:
+        movimientos = movimientos.filter(Tipo=tipo)
+    
+    if origen:
+        movimientos = movimientos.filter(OrigenMovimiento=origen)
+    
+    if fecha_desde:
+        try:
+            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d')
+            fecha_desde_obj = datetime.combine(fecha_desde_obj.date(), time.min)
+            movimientos = movimientos.filter(Fecha__gte=fecha_desde_obj)
+        except ValueError:
+            messages.error(request, 'Formato de fecha inválido para Fecha Desde')
+    
+    if fecha_hasta:
+        try:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d')
+            fecha_hasta_obj = datetime.combine(fecha_hasta_obj.date(), time.max)
+            movimientos = movimientos.filter(Fecha__lte=fecha_hasta_obj)
+        except ValueError:
+            messages.error(request, 'Formato de fecha inválido para Fecha Hasta')
     
     # Ordenar por fecha descendente
     movimientos = movimientos.order_by('-Fecha')
     
     # Paginación
-    paginator = Paginator(movimientos, 50)
+    paginator = Paginator(movimientos, 50)  # 50 movimientos por página
     page = request.GET.get('page')
     movimientos_paginados = paginator.get_page(page)
     
+    # Obtener datos para los filtros
+    productos = Producto.objects.all().order_by('Nombre')
+    categorias = Categoria.objects.all().order_by('Nombre')
+    subcategorias = SubCategoria.objects.all().order_by('Nombre')
+    marcas = Marca.objects.all().order_by('Nombre')
+    clientes = Cliente.objects.all().order_by('Nombre')
+    
     context = {
-        'form': form,
         'movimientos': movimientos_paginados,
+        'productos': productos,
+        'categorias': categorias,
+        'subcategorias': subcategorias,
+        'marcas': marcas,
+        'clientes': clientes,
+        'tipos': MovimientoStock.TIPO_CHOICES,
+        'origenes': MovimientoStock.ORIGEN_CHOICES,
+        'filtros': {
+            'producto_id': producto_id,
+            'categoria_id': categoria_id,
+            'subcategoria_id': subcategoria_id,
+            'marca_id': marca_id,
+            'cliente_id': cliente_id,
+            'tipo': tipo,
+            'origen': origen,
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
+        }
     }
     
-    return render(request, 'ventas/historial_movimientos.html', context)
+    return render(request, 'historial_movimientos.html', context)
 
 # Vistas para Ajustes de Inventario
 @login_required
@@ -1296,8 +1357,19 @@ def add_unidad_view(request):
     return redirect('Productos')
 
 # Funciones para gestión de compras
+@login_required
 def compras_view(request):
+    context = {}
+    # Verificar si hay una caja abierta para este usuario
+    caja_abierta = Caja.objects.filter(Cajero=request.user, Estado='ABIERTA').first()
+    context['caja_abierta'] = caja_abierta
+    
     if request.method == "POST":
+        # Solo permitir registro de compras pagadas si hay caja abierta
+        estado = request.POST.get('estado', 'PENDIENTE')
+        if estado == 'PAGADA' and not caja_abierta:
+            return JsonResponse({'success': False, 'error': 'Debe tener una caja abierta para registrar pagos'})
+            
         try:
             # Obtener datos del formulario
             proveedor_id = request.POST.get('proveedor')
@@ -1380,18 +1452,67 @@ def compras_view(request):
     }
     return render(request, 'compras.html', context)
 
+@login_required
 def lista_compras(request):
-    compras = Compra.objects.all().order_by('-Fecha')
-    medios_pago = MedioDePago.objects.all()
-    proveedores = Proveedor.objects.all()
-    productos = Producto.objects.all()
+    # Obtener parámetros de filtro
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    estado = request.GET.get('estado')
+    proveedor = request.GET.get('proveedor')
+    producto = request.GET.get('producto')  # Nuevo filtro para producto
+    query = request.GET.get('q', '')
     
-    return render(request, 'lista_compras.html', {
-        'compras': compras,
-        'medios_pago': medios_pago,
-        'proveedores': proveedores,
-        'productos': productos
-    })
+    # Obtener compras con filtros aplicados
+    compras = Compra.objects.all().order_by('-Fecha')
+    
+    # Aplicar filtros
+    if fecha_desde:
+        compras = compras.filter(Fecha__gte=fecha_desde)
+    if fecha_hasta:
+        compras = compras.filter(Fecha__lte=fecha_hasta)
+    if estado:
+        compras = compras.filter(Estado=estado.upper())
+    if proveedor:
+        compras = compras.filter(Proveedor_id=proveedor)
+    if producto:
+        # Filtrar compras que incluyen este producto en los detalles
+        compras = compras.filter(detallecompra__Producto_id=producto).distinct()
+    if query:
+        # Buscar por proveedor, número de compra
+        compras = compras.filter(
+            models.Q(Proveedor__RazonSocial__icontains=query) |
+            models.Q(id__icontains=query)
+        )
+    
+    # Paginación
+    paginator = Paginator(compras, 25)  # 25 compras por página
+    page = request.GET.get('page')
+    try:
+        compras_paginadas = paginator.page(page)
+    except PageNotAnInteger:
+        compras_paginadas = paginator.page(1)
+    except EmptyPage:
+        compras_paginadas = paginator.page(paginator.num_pages)
+    
+    # Preparar contexto
+    context = {
+        'compras': compras_paginadas,
+        'proveedores': Proveedor.objects.all(),
+        'productos': Producto.objects.all(),  # Para selector de productos
+        'medios_pago': MedioDePago.objects.all(),
+        # Parámetros de filtro para mantener selecciones
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'estado_filtro': estado,
+        'proveedor_filtro': proveedor,
+        'producto_filtro': producto,
+        'query': query,
+        # Total de compras filtradas
+        'total_compras': compras.count(),
+        'total_monto': compras.aggregate(total=models.Sum('ImporteTotal'))['total'] or 0
+    }
+    
+    return render(request, 'lista_compras.html', context)
 
 def detalles_compra(request):
     try:
@@ -1420,29 +1541,36 @@ def actualizar_pago_compra(request):
     if request.method == 'POST':
         try:
             compra_id = request.POST.get('compra_id')
-            medio_pago_id = request.POST.get('medio_pago')
-            fecha_pago = request.POST.get('fecha_pago')
-            
             compra = Compra.objects.get(id=compra_id)
-            compra.Estado = 'PAGADA'
-            compra.MedioDePago_id = medio_pago_id
-            compra.FechaPago = fecha_pago
-            compra.save()
             
-            return JsonResponse({
-                'success': True,
-                'message': 'Pago registrado exitosamente'
-            })
+            # Verificar si hay caja abierta
+            caja_abierta = Caja.objects.filter(Cajero=request.user, Estado='ABIERTA').first()
+            if not caja_abierta:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Debe tener una caja abierta para registrar pagos'
+                })
+            
+            # Usar el formulario para validación
+            form_data = {
+                'Compra': compra_id,
+                'MedioDePago': request.POST.get('medio_pago'),
+                'Monto': request.POST.get('monto', compra.ImporteTotal)
+            }
+            
+            form = PagoCompraForm(form_data)
+            if form.is_valid():
+                pago = form.save(commit=False)  # No guardamos aún
+                pago.save()  # Ahora sí guardamos para que se ejecute el método save()
+                
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': 'Datos inválidos', 'form_errors': form.errors})
+            
         except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            })
+            return JsonResponse({'success': False, 'error': str(e)})
     
-    return JsonResponse({
-        'success': False,
-        'error': 'Método no permitido'
-    })
+    return JsonResponse({'success': False, 'error': 'Método no permitido'})
 
 def registrar_pago(request):
     if request.method == 'POST':
@@ -1612,6 +1740,26 @@ def eliminar_compra(request):
             compra_id = data.get('compra_id')
             compra = Compra.objects.get(id=compra_id)
             
+            # Si la compra estaba pagada, revertir movimiento de caja
+            if compra.Estado == 'PAGADA':
+                # Verificar si hay caja abierta
+                caja_abierta = Caja.objects.filter(Cajero=request.user, Estado='ABIERTA').first()
+                if not caja_abierta:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'Debe tener una caja abierta para eliminar compras pagadas'
+                    })
+                
+                # Buscar el movimiento de caja relacionado y eliminarlo
+                movimiento = MovimientoCaja.objects.filter(Compra=compra).first()
+                if movimiento:
+                    # Revertir el saldo
+                    caja_abierta.Saldo += compra.ImporteTotal
+                    caja_abierta.save()
+                    
+                    # Eliminar el movimiento
+                    movimiento.delete()
+            
             # Obtener los detalles de la compra antes de eliminarla
             detalles = DetalleCompra.objects.filter(Compra=compra)
             productos_actualizados = []
@@ -1716,6 +1864,45 @@ def imprimir_ticket_view(request, numero_comprobante):
     except Exception as e:
         messages.error(request, f'Error al generar el ticket: {str(e)}')
         return redirect('ventas')
+
+def obtener_pagos_compra(request):
+    compra_id = request.GET.get('compra_id')
+    
+    try:
+        compra = Compra.objects.get(id=compra_id)
+        
+        # Si todavía no existe el modelo PagoCompra, devolvemos datos básicos
+        try:
+            from ventas.models import PagoCompra
+            pagos = PagoCompra.objects.filter(Compra=compra).order_by('-Fecha')
+            
+            pagos_data = []
+            for pago in pagos:
+                pagos_data.append({
+                    'id': pago.id,
+                    'fecha': pago.Fecha.strftime('%d/%m/%Y %H:%M'),
+                    'medio_pago': pago.MedioDePago.Nombre,
+                    'monto': str(pago.Monto)
+                })
+                
+            total_pagado = compra.get_total_pagado() if hasattr(compra, 'get_total_pagado') else 0
+            saldo_pendiente = compra.get_saldo_pendiente() if hasattr(compra, 'get_saldo_pendiente') else compra.ImporteTotal
+            
+        except (ImportError, AttributeError):
+            # Si no existe el modelo PagoCompra aún
+            pagos_data = []
+            total_pagado = 0
+            saldo_pendiente = compra.ImporteTotal
+        
+        return JsonResponse({
+            'success': True,
+            'importe_total': str(compra.ImporteTotal),
+            'total_pagado': str(total_pagado),
+            'saldo_pendiente': str(saldo_pendiente),
+            'pagos': pagos_data
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">
+        <i class="fas fa-exchange-alt mr-2"></i>Historial de Movimientos de Stock
+    </h1>
+    
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-primary text-white">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-filter mr-2"></i>Filtros
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{% url 'historial_movimientos' %}" class="row">
+                <!-- Filtro por Producto -->
+                <div class="col-md-3 mb-3">
+                    <label for="producto">Producto:</label>
+                    <select name="producto" id="producto" class="form-control">
+                        <option value="">Todos los productos</option>
+                        {% for producto in productos %}
+                        <option value="{{ producto.id }}" {% if filtros.producto_id == producto.id|stringformat:"i" %}selected{% endif %}>
+                            {{ producto.Nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtro por Tipo -->
+                <div class="col-md-2 mb-3">
+                    <label for="tipo">Tipo:</label>
+                    <select name="tipo" id="tipo" class="form-control">
+                        <option value="">Todos los tipos</option>
+                        {% for tipo_value, tipo_label in tipos %}
+                        <option value="{{ tipo_value }}" {% if filtros.tipo == tipo_value %}selected{% endif %}>
+                            {{ tipo_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtro por Origen -->
+                <div class="col-md-2 mb-3">
+                    <label for="origen">Origen:</label>
+                    <select name="origen" id="origen" class="form-control">
+                        <option value="">Todos los orígenes</option>
+                        {% for origen_value, origen_label in origenes %}
+                        <option value="{{ origen_value }}" {% if filtros.origen == origen_value %}selected{% endif %}>
+                            {{ origen_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Filtro por Fecha Desde -->
+                <div class="col-md-2 mb-3">
+                    <label for="fecha_desde">Fecha Desde:</label>
+                    <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ filtros.fecha_desde }}">
+                </div>
+                
+                <!-- Filtro por Fecha Hasta -->
+                <div class="col-md-2 mb-3">
+                    <label for="fecha_hasta">Fecha Hasta:</label>
+                    <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ filtros.fecha_hasta }}">
+                </div>
+                
+                <!-- Botones -->
+                <div class="col-md-1 mb-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search mr-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Tabla de Movimientos -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-list mr-2"></i>Movimientos de Stock
+            </h6>
+            <button class="btn btn-light btn-sm" id="exportarExcel">
+                <i class="fas fa-file-excel mr-1"></i> Exportar a Excel
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tabla-movimientos" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Producto</th>
+                            <th>Tipo</th>
+                            <th>Cantidad</th>
+                            <th>Stock Anterior</th>
+                            <th>Stock Resultante</th>
+                            <th>Origen</th>
+                            <th>Detalle</th>
+                            <th>Usuario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in movimientos %}
+                        <tr>
+                            <td>{{ movimiento.Fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{{ movimiento.Producto.Nombre }}</td>
+                            <td>
+                                {% if movimiento.Tipo == 'ENTRADA' %}
+                                <span class="badge badge-success">{{ movimiento.get_Tipo_display }}</span>
+                                {% else %}
+                                <span class="badge badge-danger">{{ movimiento.get_Tipo_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ movimiento.Cantidad }}</td>
+                            <td>{{ movimiento.StockAnterior }}</td>
+                            <td>{{ movimiento.StockResultante }}</td>
+                            <td>{{ movimiento.get_OrigenMovimiento_display }}</td>
+                            <td>{{ movimiento.Detalle }}</td>
+                            <td>{{ movimiento.Usuario.username|default:"Sistema" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center">No se encontraron movimientos de stock</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            {% if movimientos.has_other_pages %}
+            <div class="pagination justify-content-center mt-4">
+                <ul class="pagination">
+                    {% if movimientos.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Anterior</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo; Primera</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">Anterior</span>
+                    </li>
+                    {% endif %}
+                    
+                    {% for i in movimientos.paginator.page_range %}
+                        {% if movimientos.number == i %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ i }} <span class="sr-only">(actual)</span></span>
+                        </li>
+                        {% elif i > movimientos.number|add:'-3' and i < movimientos.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ i }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if movimientos.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ movimientos.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ movimientos.paginator.num_pages }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Última &raquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Siguiente</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">Última &raquo;</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Inicializar DataTable
+        var table = $('#tabla-movimientos').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+            },
+            "paging": false,
+            "info": false,
+            "searching": false,
+            "order": [[0, 'desc']]
+        });
+        
+        // Exportar a Excel
+        $('#exportarExcel').on('click', function() {
+            table.button('.buttons-excel').trigger();
+        });
+    });
+</script>
+{% endblock %} 

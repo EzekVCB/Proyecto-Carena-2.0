@@ -208,8 +208,18 @@
                 agregarProductoATabla(id, nombre, precio, stock);
             });
         });
+
+        // Verificar si hay un parámetro de compra_id en la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const compraId = urlParams.get('compra_id');
+        
+        if (compraId) {
+            // Estamos en modo edición, cargar los detalles
+            cargarDetallesCompra(compraId);
+        }
     });
 
+    // Función para agregar producto a la tabla
     function agregarProductoATabla(id, nombre, precio, stock) {
         const tabla = document.querySelector("#tabla-detalles tbody");
         
@@ -227,6 +237,10 @@
             return;
         }
 
+        // Asegurarse de que el precio sea un número
+        const precioNumerico = parseFloat(precio) || 0;
+        
+        // Crear la nueva fila
         const nuevaFila = document.createElement("tr");
         nuevaFila.innerHTML = `
             <td>
@@ -238,9 +252,9 @@
                 <input type="number" name="cantidad[]" class="form-control cantidad" min="1" value="1" required />
             </td>
             <td>
-                <input type="number" name="precio[]" class="form-control precio" step="0.01" min="0" value="${precio}" required />
+                <input type="number" name="precio[]" class="form-control precio" step="0.01" min="0" value="${precioNumerico.toFixed(2)}" required />
             </td>
-            <td class="subtotal">$${precio}</td>
+            <td class="subtotal">$${precioNumerico.toFixed(2)}</td>
             <td>
                 <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calcularTotal();">
                     <i class="fas fa-trash"></i>
@@ -375,6 +389,51 @@
                 text: 'Error al guardar la compra'
             });
         });
+    }
+
+    // Agregar esta función para cargar los detalles de una compra existente
+    function cargarDetallesCompra(compraId) {
+        fetch(`{% url 'obtener_detalles_compra' %}?compra_id=${compraId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Establecer información básica
+                    document.getElementById('proveedor').value = data.compra.proveedor_id;
+                    document.getElementById('fecha').value = data.compra.fecha;
+                    
+                    // Cargar los detalles de productos
+                    const detalles = data.detalles;
+                    detalles.forEach(detalle => {
+                        agregarProductoATabla(
+                            detalle.producto_id,
+                            detalle.producto_nombre,
+                            detalle.precio_unitario, // Usar el precio histórico
+                            detalle.stock_actual
+                        );
+                    });
+                    
+                    // Si está pagada, mostrar los datos del pago
+                    if (data.compra.estado === 'PAGADA') {
+                        pagoRegistrado = true;
+                        document.getElementById('medio_pago').value = data.compra.medio_pago_id;
+                        document.getElementById('fecha_pago').value = data.compra.fecha_pago;
+                    }
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al cargar los detalles: ' + data.error
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al cargar los detalles'
+                });
+            });
     }
 </script>
 {% endblock %} 

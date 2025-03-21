@@ -279,12 +279,34 @@ class Compra(models.Model):
     Proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, default=None, null=True)
     DetalleCompra = models.ManyToManyField(Producto, through="DetalleCompra")
     ImporteTotal = models.DecimalField(null=False, max_digits=10, decimal_places=2)
-    Estado = models.CharField(max_length=20, choices=ESTADOS_COMPRA, default='pendiente')
+    Estado = models.CharField(max_length=20, choices=ESTADOS_COMPRA, default='PENDIENTE')
     MedioDePago = models.ForeignKey(MedioDePago, on_delete=models.SET_NULL, null=True, blank=True)  
     FechaPago = models.DateField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.Fecha} - {self.Estado}"
+    
+    def get_total_pagado(self):
+        """Retorna el total pagado hasta el momento"""
+        return self.Pagos.aggregate(total=models.Sum('Monto'))['total'] or 0
+    
+    def get_saldo_pendiente(self):
+        """Retorna el saldo pendiente de pago"""
+        return self.ImporteTotal - self.get_total_pagado()
+    
+    def actualizar_estado(self):
+        """Actualiza el estado de la compra según los pagos realizados"""
+        total_pagado = self.get_total_pagado()
+        
+        if total_pagado >= self.ImporteTotal:
+            self.Estado = 'PAGADA'
+            # Si no tiene fecha de pago, establecer la fecha actual
+            if not self.FechaPago:
+                self.FechaPago = timezone.now().date()
+            self.save()
+        else:
+            self.Estado = 'PENDIENTE'
+            self.save()
 
 class DetalleCompra(models.Model):
     Compra = models.ForeignKey(Compra, on_delete=models.CASCADE, default=None, null=True)
@@ -582,4 +604,54 @@ class FraccionamientoProducto(models.Model):
                 Usuario=self.Responsable,
                 Observaciones=f"Fraccionamiento desde {self.ProductoOrigen.Nombre}"
             )
+
+class PagoCompra(models.Model):
+    Compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='Pagos')
+    MedioDePago = models.ForeignKey(MedioDePago, on_delete=models.CASCADE)
+    Monto = models.DecimalField(max_digits=10, decimal_places=2)
+    Fecha = models.DateTimeField(auto_now_add=True)
+    DatosAdicionales = models.JSONField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"Pago de ${self.Monto} con {self.MedioDePago} para compra #{self.Compra.id}"
+    
+    def save(self, *args, **kwargs):
+        EsNuevo = self._state.adding
+        super().save(*args, **kwargs)
+        
+        # Registrar en caja solo si es un pago nuevo
+        if EsNuevo:
+            # Obtener la caja abierta
+            from django.contrib.auth.models import User
+            from django.utils import timezone
+            
+            # Verificar si hay caja abierta
+            cajas_abiertas = Caja.objects.filter(Estado='ABIERTA')
+            caja_abierta = cajas_abiertas.first() if cajas_abiertas.exists() else None
+            
+            if caja_abierta:
+                # Buscar si ya existe un campo Compra en MovimientoCaja
+                # Si no existe, modificaremos el modelo con una migración después
+                from django.db import models
+                
+                # Crear movimiento de caja
+                movimiento = MovimientoCaja.objects.create(
+                    Caja=caja_abierta,
+                    TipoMovimiento='EGRESO',
+                    MontoTotal=self.Monto,
+                    Monto=self.Monto,
+                    Descripcion=f"Pago {self.MedioDePago} - Compra #{self.Compra.id} a {self.Compra.Proveedor.RazonSocial}",
+                    Cajero=caja_abierta.Cajero,
+                    MedioDePago=self.MedioDePago
+                )
+                
+                # Actualizar compra
+                self.Compra.FechaPago = timezone.now().date()
+                
+                # Verificar si el pago completa el total
+                total_pagado = self.Compra.Pagos.aggregate(total=models.Sum('Monto'))['total'] or 0
+                if total_pagado >= self.Compra.ImporteTotal:
+                    self.Compra.Estado = 'PAGADA'
+                
+                self.Compra.save()
 

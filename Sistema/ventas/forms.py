@@ -1,6 +1,6 @@
 from django import forms
 from .models import Proveedor, Cliente, Producto, Categoria, Venta, PagoVenta, MovimientoStock, SubCategoria
-from .models import FraccionamientoProducto
+from .models import FraccionamientoProducto, PagoCompra, Compra
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -285,3 +285,20 @@ class BusquedaMovimientosForm(forms.Form):
         required=False,
         widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
     )
+
+# Formulario de PagoCompra
+class PagoCompraForm(forms.ModelForm):
+    class Meta:
+        model = PagoCompra
+        fields = ['Compra', 'MedioDePago', 'Monto']
+        widgets = {
+            'Compra': forms.HiddenInput(),  # Este campo se llenará automáticamente
+            'Monto': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0'
+            }),
+            'MedioDePago': forms.Select(attrs={
+                'class': 'form-control'
+            })
+        }
