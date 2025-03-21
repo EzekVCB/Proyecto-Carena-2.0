@@ -1824,9 +1824,9 @@ def imprimir_ticket_view(request, numero_comprobante):
             'fecha': venta.Fecha.strftime('%d/%m/%Y %H:%M'),
             'empresa': {
                 'nombre': 'Fragancia Hogar',
-                'direccion': 'Av. Principal 123',
-                'telefono': '123-456-7890',
-                'cuit': '30-12345678-9'
+                'direccion': 'Av. Belgrano 436',
+                'telefono': '3544-592961',
+                
             }
         }
         
