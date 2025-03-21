@@ -76,7 +76,7 @@
       <a href="{% url 'Index' %}" class="brand-link">
         <img src="{% static 'img/logo.png' %}" alt="Logo" class="brand-image img-circle elevation-3"
           style="opacity: .8">
-        <span class="brand-text font-weight-light">Punto Venta</span>
+        <span class="brand-text font-weight-light">Fragancia Hogar</span>
       </a>
 
       <!-- Sidebar -->
@@ -88,49 +88,73 @@
             <!-- Add icons to the links using the .nav-icon class
             with font-awesome or any other icon font library -->
 
-            <li class="nav-header">OPCIONES</li>
-            <li class="nav-item">
-              <a href="{% url 'ventas' %}" class="nav-link">
-                <i class="nav-icon fas fa-cash-register"></i>
-                <p>
-                  Ventas
-                </p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="{% url 'Productos' %}" class="nav-link">
-                <i class="nav-icon fas fa-boxes"></i>
-                <p>
-                  Productos
-                </p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="{% url 'Categorias' %}" class="nav-link">
-                <i class="nav-icon fas fa-tags"></i>
-                <p>
-                  Categorias
-                </p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="{% url 'compras' %}" class="nav-link">
-                <i class="nav-icon fas fa-truck"></i>
-                <p>
-                  Compras
-                </p>
-              </a>
-            </li>
+            <li class="nav-header">CAJA</li>
             <li class="nav-item">
               <a href="{% url 'caja' %}" class="nav-link">
                 <i class="nav-icon fas fa-cash-register"></i>
-                <p>
-                  Caja
-                </p>
+                <p>Operaciones de Caja</p>
               </a>
             </li>
-            
-            <li class="nav-header">REPORTES</li>
+            {% if user.is_staff %}
+            <li class="nav-item">
+              <a href="{% url 'historial_cajas' %}" class="nav-link">
+                <i class="nav-icon fas fa-history"></i>
+                <p>Historial de Cajas</p>
+              </a>
+            </li>
+            {% endif %}
+
+            <li class="nav-header">VENTAS</li>
+            <li class="nav-item">
+              <a href="{% url 'ventas' %}" class="nav-link">
+                <i class="nav-icon fas fa-shopping-cart"></i>
+                <p>Nueva Venta</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'Clientes' %}" class="nav-link">
+                <i class="nav-icon fas fa-users"></i>
+                <p>Clientes</p>
+              </a>
+            </li>
+
+            <li class="nav-header">COMPRAS</li>
+            <li class="nav-item">
+              <a href="{% url 'compras' %}" class="nav-link">
+                <i class="nav-icon fas fa-truck"></i>
+                <p>Nueva Compra</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'Proveedores' %}" class="nav-link">
+                <i class="nav-icon fas fa-truck-loading"></i>
+                <p>Proveedores</p>
+              </a>
+            </li>
+
+            {% if user.is_superuser %}
+            <li class="nav-header">INFORMES</li>
+            <li class="nav-item">
+              <a href="{% url 'dashboard' %}" class="nav-link">
+                <i class="nav-icon fas fa-chart-line"></i>
+                <p>Ventas por Período</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'informe_costos_ganancias' %}" class="nav-link">
+                <i class="nav-icon fas fa-chart-bar"></i>
+                <p>Costos y Ganancias</p>
+              </a>
+            </li>
+            {% endif %}
+
+            <li class="nav-header">INVENTARIO</li>
+            <li class="nav-item">
+              <a href="{% url 'Productos' %}" class="nav-link">
+                <i class="nav-icon fas fa-boxes"></i>
+                <p>Productos</p>
+              </a>
+            </li>
             <li class="nav-item">
               <a href="{% url 'historial_movimientos' %}" class="nav-link">
                 <i class="nav-icon fas fa-exchange-alt"></i>
@@ -144,39 +168,9 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link">
-                <i class="nav-icon fas fa-chart-line"></i>
-                <p>Ventas por Período</p>
-              </a>
-            </li>
-            {% if user.is_staff %}
-            <li class="nav-item">
-              <a href="{% url 'historial_cajas' %}" class="nav-link">
-                <i class="nav-icon fas fa-history"></i>
-                <p>
-                  Historial de Cajas
-                </p>
-              </a>
-            </li>
-            {% endif %}
-            
-            <li class="nav-header">EMPRESA</li>
-            <li class="nav-item">
-              <a href="{% url 'Clientes' %}" class="nav-link">
-                <i class="nav-icon fas fa-users"></i>
-                <p>Clientes</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="{% url 'Proveedores' %}" class="nav-link">
-                <i class="nav-icon fas fa-truck-loading"></i>
-                <p>Proveedores</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link">
-                <i class="nav-icon fas fa-chart-bar"></i>
-                <p>Dashboard</p>
+              <a href="{% url 'Categorias' %}" class="nav-link">
+                <i class="nav-icon fas fa-tags"></i>
+                <p>Categorías</p>
               </a>
             </li>
           </ul>

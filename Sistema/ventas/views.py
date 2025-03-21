@@ -10,9 +10,10 @@ from django.template.loader import get_template
 from weasyprint import HTML, CSS
 from django.conf import settings
 import os
-from django.db.models import Sum
+from django.db.models import Sum, Count, F, Avg, DecimalField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -21,6 +22,7 @@ from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.urls import reverse
+from decimal import Decimal
 
 # Create your views here.
 
@@ -1924,6 +1926,190 @@ def ajuste_stock_view(request):
         'form': form,
         'titulo': 'Ajuste de Stock'
     })
+
+@login_required
+def dashboard_view(request):
+    # Obtener fechas para el filtro
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    
+    # Si no se especifican fechas, usar el último mes
+    if not fecha_desde or not fecha_hasta:
+        fecha_hasta = timezone.now().date()
+        fecha_desde = fecha_hasta - timezone.timedelta(days=30)
+    else:
+        fecha_desde = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+        fecha_hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+    
+    # Ventas por día
+    ventas_diarias = Venta.objects.filter(
+        Fecha__date__range=[fecha_desde, fecha_hasta]
+    ).values('Fecha__date').annotate(
+        total=Sum('ImporteTotal'),
+        cantidad=Count('id')
+    ).order_by('Fecha__date')
+
+    # Convertir valores decimales a float y formatear fechas
+    ventas_diarias = list(ventas_diarias)
+    for venta in ventas_diarias:
+        venta['total'] = float(venta['total']) if venta['total'] else 0.0
+        # Formatear la fecha como string en formato ISO
+        venta['Fecha__date'] = venta['Fecha__date'].isoformat()
+    
+    # Productos más vendidos
+    productos_mas_vendidos = DetalleVenta.objects.filter(
+        Venta__Fecha__date__range=[fecha_desde, fecha_hasta]
+    ).values(
+        'Producto__Nombre'
+    ).annotate(
+        cantidad_total=Sum('Cantidad'),
+        monto_total=Sum('Subtotal')
+    ).order_by('-cantidad_total')[:10]
+
+    # Convertir valores decimales a float
+    productos_mas_vendidos = list(productos_mas_vendidos)
+    for producto in productos_mas_vendidos:
+        producto['monto_total'] = float(producto['monto_total']) if producto['monto_total'] else 0.0
+    
+    # Ventas por medio de pago
+    ventas_por_pago = PagoVenta.objects.filter(
+        Venta__Fecha__date__range=[fecha_desde, fecha_hasta]
+    ).values(
+        'MedioDePago__Nombre',
+        'MedioDePago__id'
+    ).annotate(
+        monto_total=Sum('Monto')
+    ).order_by('-monto_total')
+
+    # Convertir valores decimales a float
+    ventas_por_pago = list(ventas_por_pago)
+    for venta in ventas_por_pago:
+        venta['monto_total'] = float(venta['monto_total']) if venta['monto_total'] else 0.0
+
+    # Si no hay ventas por pago, agregamos un valor por defecto
+    if not ventas_por_pago:
+        ventas_por_pago = [{
+            'MedioDePago__Nombre': 'Sin ventas',
+            'monto_total': 0.0
+        }]
+    
+    # Total de ventas del período
+    total_ventas = Venta.objects.filter(
+        Fecha__date__range=[fecha_desde, fecha_hasta]
+    ).aggregate(
+        total=Sum('ImporteTotal'),
+        cantidad=Count('id')
+    )
+    
+    # Convertir valores decimales a float
+    total_ventas['total'] = float(total_ventas['total']) if total_ventas['total'] else 0.0
+    
+    # Ventas por cliente
+    ventas_por_cliente = Venta.objects.filter(
+        Fecha__date__range=[fecha_desde, fecha_hasta],
+        Cliente__isnull=False
+    ).values(
+        'Cliente__Nombre'
+    ).annotate(
+        monto_total=Sum('ImporteTotal'),
+        cantidad=Count('id')
+    ).order_by('-monto_total')[:10]
+
+    # Convertir valores decimales a float
+    ventas_por_cliente = list(ventas_por_cliente)
+    for cliente in ventas_por_cliente:
+        cliente['monto_total'] = float(cliente['monto_total']) if cliente['monto_total'] else 0.0
+    
+    # Productos con stock bajo
+    productos_stock_bajo = Producto.objects.filter(
+        Cantidad__lte=F('CantidadMinimaSugerida')
+    ).values('Nombre', 'Cantidad', 'CantidadMinimaSugerida')
+    
+    # Movimientos de stock
+    movimientos_stock = MovimientoStock.objects.filter(
+        Fecha__date__range=[fecha_desde, fecha_hasta]
+    ).values(
+        'Tipo'
+    ).annotate(
+        cantidad=Sum('Cantidad')
+    )
+    
+    context = {
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'ventas_diarias': ventas_diarias,
+        'productos_mas_vendidos': productos_mas_vendidos,
+        'ventas_por_pago': ventas_por_pago,
+        'productos_stock_bajo': list(productos_stock_bajo),
+        'total_ventas': total_ventas,
+        'ventas_por_cliente': ventas_por_cliente,
+        'movimientos_stock': list(movimientos_stock),
+        'titulo': 'Dashboard'
+    }
+    
+    return render(request, 'ventas/dashboard.html', context)
+
+def informe_costos_ganancias(request):
+    # Obtener fechas del filtro o usar el mes actual
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    
+    if not fecha_desde or not fecha_hasta:
+        # Si no hay fechas, usar el mes actual
+        hoy = datetime.now()
+        fecha_desde = hoy.replace(day=1).strftime('%Y-%m-%d')
+        fecha_hasta = (hoy.replace(day=1) + timedelta(days=32)).replace(day=1).strftime('%Y-%m-%d')
+    
+    # Convertir fechas a datetime
+    fecha_desde = datetime.strptime(fecha_desde, '%Y-%m-%d')
+    fecha_hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d')
+    
+    # Obtener ventas del período
+    ventas_periodo = Venta.objects.filter(
+        Fecha__range=[fecha_desde, fecha_hasta]
+    ).aggregate(
+        total=Coalesce(Sum('ImporteTotal'), 0, output_field=DecimalField()),
+        cantidad=Count('id')
+    )
+    
+    # Obtener costos de productos vendidos
+    costos_productos = DetalleVenta.objects.filter(
+        Venta__Fecha__range=[fecha_desde, fecha_hasta]
+    ).aggregate(
+        costo_total=Coalesce(Sum(F('Cantidad') * F('Producto__PrecioCosto')), 0, output_field=DecimalField())
+    )
+    
+    # Obtener compras del período
+    compras_periodo = Compra.objects.filter(
+        Fecha__range=[fecha_desde, fecha_hasta]
+    ).aggregate(
+        total=Coalesce(Sum('ImporteTotal'), 0, output_field=DecimalField()),
+        cantidad=Count('id')
+    )
+    
+    # Calcular ganancia bruta (ventas - costos de productos)
+    ganancia_bruta = float(ventas_periodo['total'] or 0) - float(costos_productos['costo_total'] or 0)
+    
+    # Calcular ganancia neta (ventas - costos de productos - compras)
+    ganancia_neta = ganancia_bruta - float(compras_periodo['total'] or 0)
+    
+    # Calcular porcentajes
+    ganancia_bruta_porcentaje = (ganancia_bruta / float(ventas_periodo['total'] or 1)) * 100 if ventas_periodo['total'] else 0
+    ganancia_neta_porcentaje = (ganancia_neta / float(ventas_periodo['total'] or 1)) * 100 if ventas_periodo['total'] else 0
+    
+    context = {
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'ventas_periodo': ventas_periodo,
+        'costos_productos': costos_productos,
+        'compras_periodo': compras_periodo,
+        'ganancia_bruta': ganancia_bruta,
+        'ganancia_neta': ganancia_neta,
+        'ganancia_bruta_porcentaje': ganancia_bruta_porcentaje,
+        'ganancia_neta_porcentaje': ganancia_neta_porcentaje,
+    }
+    
+    return render(request, 'ventas/informe_costos_ganancias.html', context)
 
 
 

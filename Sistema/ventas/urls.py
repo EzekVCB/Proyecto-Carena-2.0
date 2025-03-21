@@ -70,4 +70,8 @@ urlpatterns = [
     # URLs para Movimientos de Stock
     path('movimientos/', views.historial_movimientos, name='historial_movimientos'),
     path('movimientos/ajuste/', views.ajuste_stock_view, name='ajuste_stock'),
+
+    # URLs para Dashboard
+    path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('informe-costos-ganancias/', views.informe_costos_ganancias, name='informe_costos_ganancias'),
 ]
