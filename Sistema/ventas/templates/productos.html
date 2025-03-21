@@ -1157,7 +1157,12 @@
                     <tr>
                         <th>Nombre</th>
                         <th>Marca</th>
-                        <th>Cantidad</th>
+                        <th>Categoría</th>
+                        <th>Stock</th>
+                        <th>Stock Mín.</th>
+                        <th>Precio Costo</th>
+                        <th>Precio Lista</th>
+                        <th>Precio Contado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -1165,8 +1170,14 @@
                     {% for producto in productos %}
                     <tr>
                         <td>{{ producto.Nombre }}</td>
-                        <td>{{ producto.Marca }}</td>
+                        <td>{{ producto.Marca|default:"-" }}</td>
+                        <td>{{ producto.SubCategoria.Categoria|default:"-" }}</td>
+                      
                         <td>{{ producto.Cantidad }}</td>
+                        <td>{{ producto.CantidadMinimaSugerida }}</td>
+                        <td>${{ producto.PrecioCosto|floatformat:2 }}</td>
+                        <td>${{ producto.PrecioDeLista|floatformat:2 }}</td>
+                        <td>${{ producto.PrecioDeContado|floatformat:2 }}</td>
                         <td>
                             <button onclick="editarProducto('{{ producto.id }}')"
                                 class="btn btn-dark-outline btn-sm" data-toggle="modal" href="#EditarProductoModal">

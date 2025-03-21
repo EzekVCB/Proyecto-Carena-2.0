@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from .models import *
 from .forms import *
 from django.contrib import messages
@@ -65,13 +65,20 @@ def obtener_productos_stock_bajo():
 
     return productos
 
+def contar_compras_sin_pagar():
+    """
+    Cuenta cuántas compras están pendientes de pago.
+    Retorna el número de compras sin pagar.
+    """
+    return Compra.objects.filter(Estado='PENDIENTE').count()
+
 @login_required
 def index_view(request):
     context = {
         'ventas_dia': obtener_ventas_del_dia(),
         'productos_bajos': contar_productos_bajos_stock(),
         'total_productos': Producto.objects.count(),
-        'total_clientes': Cliente.objects.count(),
+        'compras_pendientes': contar_compras_sin_pagar(),
         'ultimas_ventas': Venta.objects.all().order_by('-Fecha')[:5],
         'productos_stock_bajo': obtener_productos_stock_bajo(),
     }

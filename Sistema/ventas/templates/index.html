@@ -22,7 +22,7 @@
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="{% url 'ventas' %}">Ver detalles</a>
+                    <a class="small text-white stretched-link" href="{% url 'caja' %}">Ver detalles</a>
                     <i class="fas fa-angle-right"></i>
                 </div>
             </div>
@@ -69,14 +69,14 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h5 class="mb-0">Clientes</h5>
-                            <h3 class="mb-0">{{ total_clientes|default:"0" }}</h3>
+                            <h5 class="mb-0">Compras sin pagar</h5>
+                            <h3 class="mb-0">{{ compras_pendientes|default:"0" }}</h3>
                         </div>
-                        <i class="fas fa-users fa-2x"></i>
+                        <i class="fas fa-file-invoice-dollar fa-2x"></i>
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" href="{% url 'Clientes' %}">Ver clientes</a>
+                    <a class="small text-white stretched-link" href="{% url 'lista_compras' %}">Ver compras</a>
                     <i class="fas fa-angle-right"></i>
                 </div>
             </div>
@@ -99,18 +99,6 @@
                             </a>
                         </div>
                         <div class="col-md-3 col-6 mb-3">
-                            <a href="{% url 'AddProducto' %}" class="btn btn-lg btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                                <i class="fas fa-box-open fa-3x mb-2"></i>
-                                <span>Agregar Producto</span>
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <a href="{% url 'AddCliente' %}" class="btn btn-lg btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                                <i class="fas fa-user-plus fa-3x mb-2"></i>
-                                <span>Nuevo Cliente</span>
-                            </a>
-                        </div>
-                        <div class="col-md-3 col-6 mb-3">
                             <a href="{% url 'compras' %}" class="btn btn-lg btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
                                 <i class="fas fa-truck fa-3x mb-2"></i>
                                 <span>Nueva Compra</span>
@@ -122,6 +110,15 @@
                                 <span>Lista de Compras</span>
                             </a>
                         </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <a href="{% url 'AddProducto' %}" class="btn btn-lg btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                                <i class="fas fa-box-open fa-3x mb-2"></i>
+                                <span>Agregar Producto</span>
+                            </a>
+                        </div>
+                        
+                        
+                        
                     </div>
                 </div>
             </div>
