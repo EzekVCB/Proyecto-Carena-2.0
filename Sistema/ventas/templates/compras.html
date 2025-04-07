@@ -300,6 +300,29 @@
             return;
         }
         
+        // Crear campos ocultos para el pago
+        const form = document.getElementById('compraForm');
+        let medioPagoInput = form.querySelector('input[name="medio_pago"]');
+        let fechaPagoInput = form.querySelector('input[name="fecha_pago"]');
+        
+        if (!medioPagoInput) {
+            medioPagoInput = document.createElement('input');
+            medioPagoInput.type = 'hidden';
+            medioPagoInput.name = 'medio_pago';
+            form.appendChild(medioPagoInput);
+        }
+        
+        if (!fechaPagoInput) {
+            fechaPagoInput = document.createElement('input');
+            fechaPagoInput.type = 'hidden';
+            fechaPagoInput.name = 'fecha_pago';
+            form.appendChild(fechaPagoInput);
+        }
+        
+        // Asignar valores
+        medioPagoInput.value = medioPago;
+        fechaPagoInput.value = fechaPago;
+        
         pagoRegistrado = true;
         modalPago.hide();
         
